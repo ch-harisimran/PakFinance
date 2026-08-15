@@ -30,12 +30,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * which would make the boxes arc oddly on the way into the ring.
  */
 
-const SLOTS = 4;
-const TURN = 450;
+const SLOTS = 6;
+
+/**
+ * One full wind-up turn plus exactly one seat, so entering a digit advances the
+ * ring by one position. A seat is 360/SLOTS degrees — 60° on a six-slot ring,
+ * hence 420. (It was 450 when this was four slots and a seat was 90°.)
+ */
+const TURN = 360 + 360 / SLOTS;
+
 const WIND_UP_BRAKE = "cubic-bezier(0.7, 0, 0.15, 1)";
 const RING_VB = 120;
 const RING_R = 50;
-const LINE_GAP = 78;
+
+/** Widest the straight line may be, before it is fitted to the container. */
+const LINE_GAP_MAX = 58;
 
 type Phase = "line" | "gather" | "spin" | "ok" | "bad";
 
@@ -93,11 +102,21 @@ export function OtpOrbit({
     };
   }, []);
 
-  /** Resting offset from the hub for the straight line. */
-  const linePos = useCallback((i: number) => {
-    const gap = Math.min(LINE_GAP, Math.max(60, LINE_GAP));
-    return { dx: (i - (SLOTS - 1) / 2) * gap, dy: 0 };
-  }, []);
+  /**
+   * Resting offset from the hub for the straight line.
+   *
+   * The gap is fitted to the measured container rather than fixed: six boxes at
+   * a fixed 58px span 290px plus the box itself, which overflows a phone. This
+   * keeps the row inside its frame at any width.
+   */
+  const linePos = useCallback(
+    (i: number) => {
+      const fitted = size ? (size - 64) / (SLOTS - 1) : LINE_GAP_MAX;
+      const gap = Math.min(LINE_GAP_MAX, fitted);
+      return { dx: (i - (SLOTS - 1) / 2) * gap, dy: 0 };
+    },
+    [size],
+  );
 
   /** Seat on the ring. Seats run anticlockwise so a +90° net turn advances. */
   const seatPos = useCallback(
@@ -267,7 +286,7 @@ export function OtpOrbit({
     <div className="flex flex-col items-center">
       <div
         ref={orbitRef}
-        className="orbit aspect-square w-full max-w-[330px]"
+        className="orbit aspect-square w-full max-w-[380px]"
         data-phase={phase}
       >
         <svg className="orbit__ring" viewBox={`0 0 ${RING_VB} ${RING_VB}`} aria-hidden="true">

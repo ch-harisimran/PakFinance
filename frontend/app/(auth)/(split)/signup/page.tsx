@@ -1,27 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { signUp, type ActionState } from "@/app/(auth)/actions";
 
-/**
- * Sign up — form on the RIGHT, interactive panel on the left.
- *
- * No backend yet: submitting routes straight to OTP verification. Validation
- * here is presentational only; the real rules live server-side later.
- */
+/** Sign up — form on the RIGHT, interactive panel on the left. */
 export default function SignupPage() {
-  const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    router.push("/verify?flow=signup");
-  };
+  const [state, action, pending] = useActionState<ActionState, FormData>(signUp, {});
 
   return (
     <AuthShell
@@ -37,7 +25,7 @@ export default function SignupPage() {
         </>
       }
     >
-      <form onSubmit={onSubmit} className="auth-form">
+      <form action={action} className="auth-form">
         <Field label="Full name" name="name" autoComplete="name" placeholder="Haris Khan" required />
         <Field
           label="Email"
@@ -45,6 +33,7 @@ export default function SignupPage() {
           type="email"
           autoComplete="email"
           placeholder="you@example.com"
+          defaultValue={state.email}
           required
         />
         <Field
@@ -54,6 +43,7 @@ export default function SignupPage() {
           autoComplete="new-password"
           placeholder="At least 8 characters"
           minLength={8}
+          error={state.error}
           required
         />
 
@@ -73,8 +63,14 @@ export default function SignupPage() {
           </span>
         </label>
 
-        <Button type="submit" variant="primary" arrow className="mt-3 w-full justify-center" disabled={submitting}>
-          {submitting ? "Sending code…" : "Create account"}
+        <Button
+          type="submit"
+          variant="primary"
+          arrow
+          className="mt-3 w-full justify-center"
+          disabled={pending}
+        >
+          {pending ? "Sending code…" : "Create account"}
         </Button>
       </form>
     </AuthShell>

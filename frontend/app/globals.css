@@ -218,13 +218,15 @@ html.lenis body {
   box-shadow: 0 0 28px 8px rgba(226, 87, 76, 0.45);
 }
 
+/* Sized for six slots: at the previous 62px they overflowed the ring on a
+   phone once there were six of them rather than four. */
 .slot {
   position: absolute;
   display: grid;
   place-items: center;
-  width: 62px;
-  height: 72px;
-  border-radius: 14px;
+  width: 50px;
+  height: 62px;
+  border-radius: 13px;
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--highlight-top);
@@ -308,7 +310,7 @@ html.lenis body {
   outline: none;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 500;
   color: var(--ice);
   caret-color: var(--live);

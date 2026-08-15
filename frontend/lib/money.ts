@@ -15,6 +15,34 @@ export type Notation = "international" | "subcontinental";
 const nf = (min: number, max: number) =>
   new Intl.NumberFormat("en-US", { minimumFractionDigits: min, maximumFractionDigits: max });
 
+/**
+ * Rupees → integer paisa, for storage.
+ *
+ * Rounds rather than truncates, and goes via a string to dodge the classic
+ * float trap: 12.29 * 100 is 1228.9999999999998 in IEEE-754, which truncates to
+ * 1228 and quietly loses a paisa on every write.
+ */
+export function toPaisa(rupees: number | string): number {
+  const n = typeof rupees === "string" ? Number(rupees.replace(/,/g, "")) : rupees;
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+}
+
+/** Integer paisa → rupees, for display and form defaults. */
+export function fromPaisa(paisa: number): number {
+  return paisa / 100;
+}
+
+/** Paisa formatted as full rupees: 245005900 → "2,450,059" */
+export function paisaFull(paisa: number, decimals = 0): string {
+  return formatFull(fromPaisa(paisa), decimals);
+}
+
+/** Paisa in compact form: 245005900 → "2.45M" */
+export function paisaCompact(paisa: number, notation: Notation = "international"): string {
+  return formatCompact(fromPaisa(paisa), notation);
+}
+
 /** 2,450,059 → "2,450,059" */
 export function formatFull(rupees: number, decimals = 0): string {
   return nf(decimals, decimals).format(rupees);

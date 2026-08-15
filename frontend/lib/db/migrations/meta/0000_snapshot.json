@@ -1,0 +1,729 @@
+{
+  "id": "6cc271a9-6638-45ca-bb60-6ee4a00b9404",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "market.corporate_actions": {
+      "name": "corporate_actions",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "action_kind",
+          "typeSchema": "market",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ex_date": {
+          "name": "ex_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ratio_from": {
+          "name": "ratio_from",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ratio_to": {
+          "name": "ratio_to",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "corp_actions_symbol_idx": {
+          "name": "corp_actions_symbol_idx",
+          "columns": [
+            {
+              "expression": "symbol",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ex_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "corporate_actions_symbol_securities_symbol_fk": {
+          "name": "corporate_actions_symbol_securities_symbol_fk",
+          "tableFrom": "corporate_actions",
+          "tableTo": "securities",
+          "schemaTo": "market",
+          "columnsFrom": [
+            "symbol"
+          ],
+          "columnsTo": [
+            "symbol"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.fund_navs": {
+      "name": "fund_navs",
+      "schema": "market",
+      "columns": {
+        "fund_id": {
+          "name": "fund_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nav": {
+          "name": "nav",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_date": {
+          "name": "session_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fund_navs_fund_id_funds_id_fk": {
+          "name": "fund_navs_fund_id_funds_id_fk",
+          "tableFrom": "fund_navs",
+          "tableTo": "funds",
+          "schemaTo": "market",
+          "columnsFrom": [
+            "fund_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "fund_navs_fund_id_session_date_pk": {
+          "name": "fund_navs_fund_id_session_date_pk",
+          "columns": [
+            "fund_id",
+            "session_date"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.funds": {
+      "name": "funds",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amc": {
+          "name": "amc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_islamic": {
+          "name": "is_islamic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "mufap_code": {
+          "name": "mufap_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "funds_mufap_code_unique": {
+          "name": "funds_mufap_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "mufap_code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.market_holidays": {
+      "name": "market_holidays",
+      "schema": "market",
+      "columns": {
+        "holiday_date": {
+          "name": "holiday_date",
+          "type": "date",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.price_latest": {
+      "name": "price_latest",
+      "schema": "market",
+      "columns": {
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ldcp": {
+          "name": "ldcp",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "day_high": {
+          "name": "day_high",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "day_low": {
+          "name": "day_low",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "volume": {
+          "name": "volume",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_pct": {
+          "name": "change_pct",
+          "type": "numeric(8, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "as_of": {
+          "name": "as_of",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "price_latest_symbol_securities_symbol_fk": {
+          "name": "price_latest_symbol_securities_symbol_fk",
+          "tableFrom": "price_latest",
+          "tableTo": "securities",
+          "schemaTo": "market",
+          "columnsFrom": [
+            "symbol"
+          ],
+          "columnsTo": [
+            "symbol"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.prices": {
+      "name": "prices",
+      "schema": "market",
+      "columns": {
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "volume": {
+          "name": "volume",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "as_of": {
+          "name": "as_of",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "prices_as_of_idx": {
+          "name": "prices_as_of_idx",
+          "columns": [
+            {
+              "expression": "as_of",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "prices_symbol_securities_symbol_fk": {
+          "name": "prices_symbol_securities_symbol_fk",
+          "tableFrom": "prices",
+          "tableTo": "securities",
+          "schemaTo": "market",
+          "columnsFrom": [
+            "symbol"
+          ],
+          "columnsTo": [
+            "symbol"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "prices_symbol_as_of_pk": {
+          "name": "prices_symbol_as_of_pk",
+          "columns": [
+            "symbol",
+            "as_of"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.prices_daily": {
+      "name": "prices_daily",
+      "schema": "market",
+      "columns": {
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_date": {
+          "name": "session_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "open": {
+          "name": "open",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "high": {
+          "name": "high",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "low": {
+          "name": "low",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "close": {
+          "name": "close",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "volume": {
+          "name": "volume",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "prices_daily_symbol_securities_symbol_fk": {
+          "name": "prices_daily_symbol_securities_symbol_fk",
+          "tableFrom": "prices_daily",
+          "tableTo": "securities",
+          "schemaTo": "market",
+          "columnsFrom": [
+            "symbol"
+          ],
+          "columnsTo": [
+            "symbol"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "prices_daily_symbol_session_date_pk": {
+          "name": "prices_daily_symbol_session_date_pk",
+          "columns": [
+            "symbol",
+            "session_date"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.securities": {
+      "name": "securities",
+      "schema": "market",
+      "columns": {
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "security_kind",
+          "typeSchema": "market",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sector": {
+          "name": "sector",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "board": {
+          "name": "board",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "first_seen_at": {
+          "name": "first_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "securities_active_idx": {
+          "name": "securities_active_idx",
+          "columns": [
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.sessions": {
+      "name": "sessions",
+      "schema": "market",
+      "columns": {
+        "weekday": {
+          "name": "weekday",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seq": {
+          "name": "seq",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opens_at": {
+          "name": "opens_at",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "closes_at": {
+          "name": "closes_at",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "sessions_weekday_seq_pk": {
+          "name": "sessions_weekday_seq_pk",
+          "columns": [
+            "weekday",
+            "seq"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.sync_runs": {
+      "name": "sync_runs",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "job": {
+          "name": "job",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rows_written": {
+          "name": "rows_written",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "sync_runs_job_idx": {
+          "name": "sync_runs_job_idx",
+          "columns": [
+            {
+              "expression": "job",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "market.action_kind": {
+      "name": "action_kind",
+      "schema": "market",
+      "values": [
+        "BONUS",
+        "SPLIT",
+        "RIGHT",
+        "DIVIDEND"
+      ]
+    },
+    "market.security_kind": {
+      "name": "security_kind",
+      "schema": "market",
+      "values": [
+        "EQUITY",
+        "ETF",
+        "REIT",
+        "PREF",
+        "DEBT"
+      ]
+    }
+  },
+  "schemas": {
+    "market": "market"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

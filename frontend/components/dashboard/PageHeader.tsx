@@ -15,6 +15,7 @@ export function PageHeader({
   subtitle,
   freshness,
   action,
+  actionSlot,
   search,
   children,
 }: {
@@ -22,6 +23,8 @@ export function PageHeader({
   subtitle?: string;
   freshness?: Freshness;
   action?: string;
+  /** A ready-made action element — used by the entry-form dialogs. */
+  actionSlot?: ReactNode;
   /** Placeholder for this screen's own search. Scoped to the records on this
    *  screen — there is no global search, by design. */
   search?: string;
@@ -61,6 +64,7 @@ export function PageHeader({
           </div>
         )}
         {children}
+        {actionSlot}
         {action && (
           <button
             className="flex h-9 items-center gap-2 rounded-[10px] px-3.5 text-[13px] font-[550] transition-colors duration-200 hover:bg-[var(--color-brass-lit)]"

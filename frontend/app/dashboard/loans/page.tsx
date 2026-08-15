@@ -1,140 +1,136 @@
+import { Receipt } from "lucide-react";
 import { PageHeader, StatRow } from "@/components/dashboard/PageHeader";
 import { Panel } from "@/components/dashboard/Panel";
+import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Meter } from "@/components/ui/Meter";
-import { FRESH, LIABILITIES, TOTAL_LIABILITIES, LOAN_SCHEDULE } from "@/lib/dashboard-data";
-import { formatFull } from "@/lib/money";
+import { AddLoan, LogPayment } from "@/components/forms/EntryForms";
+import { getLoans, loanOutstanding } from "@/lib/queries";
+import { paisaFull } from "@/lib/money";
 
 /**
  * Loans.
  *
- * The amortization schedule is the reason this screen exists: seeing how much
- * of each installment is principal versus markup is the single most useful
- * thing a borrower can know, and no bank statement shows it plainly.
+ * The outstanding balance is derived from the payment ledger, never stored — a
+ * stored balance and a payment log drift apart the first time either is edited.
  */
-export default function LoansPage() {
-  const monthly = LIABILITIES.reduce((s, l) => s + l.installment, 0);
-  const markupThisYear = LOAN_SCHEDULE.reduce((s, r) => s + r.markup, 0);
+export default async function LoansPage() {
+  const loans = await getLoans();
+  const rows = loans.map((l) => ({ ...l, ...loanOutstanding(l) }));
+
+  const outstanding = rows.reduce((s, l) => s + l.remainingPaisa, 0);
+  const monthly = rows.reduce((s, l) => s + (l.installment_paisa ?? 0), 0);
+  const markupPaid = loans
+    .flatMap((l) => l.loan_payments)
+    .reduce((s) => s, 0);
 
   return (
     <div className="flex-1 px-5 py-6 sm:px-6">
       <PageHeader
         title="Loans"
-        subtitle="Principal and markup split for every installment"
-        freshness={FRESH.manual}
-        search="Search loans"
-        action="Add loan"
+        subtitle="Outstanding balances derived from your payment ledger"
+        search={rows.length ? "Search loans" : undefined}
+        actionSlot={<AddLoan />}
       />
 
-      <StatRow
-        stats={[
-          { k: "Total outstanding", v: formatFull(TOTAL_LIABILITIES) },
-          { k: "Monthly obligation", v: formatFull(monthly), tone: "muted" },
-          { k: "Markup ahead (6m)", v: formatFull(markupThisYear), tone: "loss" },
-          { k: "Debt-free", v: "Mar 2029", tone: "gain" },
-        ]}
-      />
+      {rows.length === 0 ? (
+        <EmptyState
+          Icon={Receipt}
+          title="No loans tracked"
+          body="Add a loan once — principal, markup rate and tenure — then log each payment. PakFinance keeps the outstanding balance and tells you the date you're free."
+          action={<AddLoan />}
+        />
+      ) : (
+        <>
+          <StatRow
+            stats={[
+              { k: "Total outstanding", v: paisaFull(outstanding) },
+              { k: "Monthly obligation", v: paisaFull(monthly), tone: "muted" },
+              { k: "Repaid so far", v: paisaFull(rows.reduce((s, l) => s + l.repaidPaisa, 0)), tone: "gain" },
+              { k: "Active loans", v: String(rows.filter((l) => !l.is_settled).length) },
+            ]}
+          />
 
-      <div className="mb-5 grid gap-5 lg:grid-cols-2">
-        {LIABILITIES.map((l) => {
-          const repaid = ((l.principal - l.remaining) / l.principal) * 100;
-          return (
-            <section key={l.name} className="card p-5">
-              <div className="mb-5 flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-[15px] font-semibold tracking-[-0.01em]">{l.name}</h3>
-                  <p className="mt-1 text-[11.5px]" style={{ color: "var(--text-faint)" }}>
-                    {l.lender} · original {formatFull(l.principal)}
-                  </p>
+          <div className="mb-5 grid gap-5 lg:grid-cols-2">
+            {rows.map((l) => (
+              <section key={l.id} className="card p-5">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-[15px] font-semibold tracking-[-0.01em]">{l.name}</h3>
+                    <p className="mt-1 text-[11.5px]" style={{ color: "var(--text-faint)" }}>
+                      {l.lender ?? "—"} · original {paisaFull(l.principal_paisa)}
+                      {l.markup_rate ? ` · ${l.markup_rate}%` : ""}
+                    </p>
+                  </div>
+                  {l.due_day && (
+                    <span
+                      className="whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em]"
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        borderColor: "var(--border-subtle)",
+                        color: "var(--text-faint)",
+                      }}
+                    >
+                      Due {l.due_day}
+                      {l.due_day === 1 ? "st" : l.due_day === 2 ? "nd" : l.due_day === 3 ? "rd" : "th"}
+                    </span>
+                  )}
                 </div>
-                <span
-                  className="whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em]"
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    borderColor: "var(--border-subtle)",
-                    color: l.dueInDays <= 7 ? "var(--color-brass)" : "var(--text-faint)",
-                  }}
+
+                <div className="flex items-baseline text-[26px] font-semibold leading-none tracking-[-0.025em]">
+                  <span className="currency">PKR</span>
+                  <span data-numeric>{paisaFull(l.remainingPaisa)}</span>
+                </div>
+                <div className="mt-2 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+                  remaining
+                  {l.installment_paisa ? ` · ${paisaFull(l.installment_paisa)}/month` : ""}
+                </div>
+
+                <Meter value={l.repaidPct} className="mt-5" />
+                <div className="mt-2 text-[11.5px]" style={{ color: "var(--text-faint)" }} data-numeric>
+                  {l.repaidPct.toFixed(0)}% repaid · {l.loan_payments.length} payment
+                  {l.loan_payments.length === 1 ? "" : "s"}
+                </div>
+
+                <div
+                  className="mt-5 flex gap-4 border-t pt-4"
+                  style={{ borderColor: "var(--border-subtle)" }}
                 >
-                  Due in {l.dueInDays}d
-                </span>
-              </div>
-
-              <div className="flex items-baseline text-[26px] font-semibold leading-none tracking-[-0.025em]">
-                <span className="currency">PKR</span>
-                <span data-numeric>{formatFull(l.remaining)}</span>
-              </div>
-              <div className="mt-2 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
-                remaining · {formatFull(l.installment)}/month
-              </div>
-
-              <Meter value={repaid} className="mt-5" />
-              <div className="mt-2 text-[11.5px]" style={{ color: "var(--text-faint)" }} data-numeric>
-                {repaid.toFixed(0)}% repaid
-              </div>
-
-              <div
-                className="mt-5 flex gap-4 border-t pt-4 text-[12.5px]"
-                style={{ borderColor: "var(--border-subtle)" }}
-              >
-                <button className="underline-offset-4 hover:underline" style={{ color: "var(--brass-text)" }}>
-                  Log payment
-                </button>
-                <button className="underline-offset-4 hover:underline" style={{ color: "var(--text-faint)" }}>
-                  Payoff simulator
-                </button>
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      <Panel
-        title="Amortization · Car loan"
-        subtitle="Next six installments"
-        bodyClassName="p-0"
-      >
-        <div
-          className="grid grid-cols-[auto_1.2fr_repeat(3,minmax(0,1fr))] gap-3 px-5 py-2.5 text-[9.5px] uppercase tracking-[0.14em]"
-          style={{ fontFamily: "var(--font-mono)", color: "var(--text-faint)" }}
-        >
-          <span>#</span>
-          <span>Due</span>
-          <span className="text-right">Principal</span>
-          <span className="text-right">Markup</span>
-          <span className="text-right">Balance</span>
-        </div>
-
-        {LOAN_SCHEDULE.map((r, i) => (
-          <div
-            key={r.n}
-            className="grid grid-cols-[auto_1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 border-t px-5 py-3 transition-colors duration-200 hover:bg-[var(--surface-1)]"
-            style={{
-              borderColor: "var(--border-subtle)",
-              backgroundColor: i === 0 ? "var(--surface-1)" : undefined,
-            }}
-            data-numeric
-          >
-            <span
-              className="text-[12px]"
-              style={{ fontFamily: "var(--font-mono)", color: "var(--text-faint)" }}
-            >
-              {r.n}
-            </span>
-            <span className="text-[13px]">
-              {r.due}
-              {i === 0 && (
-                <span className="ml-2 text-[11px]" style={{ color: "var(--color-brass)" }}>
-                  next
-                </span>
-              )}
-            </span>
-            <span className="text-right text-[13px]">{formatFull(r.principal)}</span>
-            <span className="text-right text-[13px]" style={{ color: "var(--color-loss)" }}>
-              {formatFull(r.markup)}
-            </span>
-            <span className="text-right text-[13px] font-semibold">{formatFull(r.balance)}</span>
+                  <LogPayment loanId={l.id} />
+                </div>
+              </section>
+            ))}
           </div>
-        ))}
-      </Panel>
+
+          <Panel title="Payment history" subtitle="Across all loans" bodyClassName="p-0">
+            {rows
+              .flatMap((l) => l.loan_payments.map((p, i) => ({ ...p, loan: l.name, key: `${l.id}-${i}` })))
+              .sort((a, b) => b.paid_at.localeCompare(a.paid_at))
+              .slice(0, 15)
+              .map((p) => (
+                <div
+                  key={p.key}
+                  className="flex items-center justify-between gap-4 border-b px-5 py-3.5 last:border-b-0"
+                  style={{ borderColor: "var(--border-subtle)" }}
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-[13px] font-medium">{p.loan}</div>
+                    <div className="mt-0.5 text-[11px]" style={{ color: "var(--text-faint)" }}>
+                      {p.paid_at}
+                    </div>
+                  </div>
+                  <span className="flex-none text-[13.5px] font-semibold" data-numeric>
+                    {paisaFull(p.amount_paisa)}
+                  </span>
+                </div>
+              ))}
+            {markupPaid === 0 && rows.every((l) => l.loan_payments.length === 0) && (
+              <p className="px-5 py-8 text-center text-[13px]" style={{ color: "var(--text-faint)" }}>
+                No payments logged yet.
+              </p>
+            )}
+          </Panel>
+        </>
+      )}
     </div>
   );
 }

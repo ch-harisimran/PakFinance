@@ -1,0 +1,58 @@
+name: PSX price sync
+
+# Fires every 30 minutes across the trading window; the job itself decides
+# whether to actually fetch. Scheduling policy lives in lib/market/sync.ts
+# because a crontab cannot know about market holidays or Ramadan hours.
+#
+# Times are UTC. PKT is UTC+5 with no DST, so:
+#   04:00 UTC = 09:00 PKT  (before the 09:30 open)
+#   12:30 UTC = 17:30 PKT  (an hour after the latest close, 16:30 on Friday)
+#
+# Most of these runs cost one small query and exit. Only ~3 per day pass the
+# interval guard and reach PSX.
+on:
+  schedule:
+    - cron: "0,30 4-12 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Bypass the market-hours and interval guards"
+        type: boolean
+        default: false
+
+concurrency:
+  # Never let a delayed run overlap the next one — two syncs writing the same
+  # rows at once is pointless work.
+  group: sync-psx
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        # Not --ignore-scripts: esbuild (via tsx) needs its postinstall to place
+        # the platform binary, and the job cannot run without it.
+        run: npm ci
+
+      - name: Sync
+        working-directory: frontend
+        env:
+          # Session pooler (port 5432). The direct db.*.supabase.co host is
+          # IPv6-only and unreachable from GitHub runners.
+          DATABASE_POOL_URL: ${{ secrets.DATABASE_POOL_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PSX_MIN_SYNC_INTERVAL_MINUTES: "180"
+          PSX_USER_AGENT: "PakFinance/0.1 (personal finance tracker; +https://github.com/ch-harisimran/PakFinance)"
+        run: npx tsx scripts/sync-psx.ts ${{ inputs.force && '--force' || '' }}

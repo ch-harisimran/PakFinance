@@ -32,7 +32,9 @@ const GLIDE = { duration: 0.78, ease: [0.16, 1, 0.3, 1] as const };
 
 export default function SplitLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const formLeft = pathname.startsWith("/login");
+  // Forgot-password is a continuation of Log in, so it keeps the form on the
+  // same side — the panel should not jump when you click "Forgot password?".
+  const formLeft = pathname.startsWith("/login") || pathname.startsWith("/forgot-password");
 
   return (
     <div className="split-shell">

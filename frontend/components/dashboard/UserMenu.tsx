@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChevronDown, User, Settings, LogOut } from "lucide-react";
+import { signOut } from "@/app/(auth)/actions";
 
 /**
  * Account menu. Takes the slot the global Add button used to occupy — Add is
@@ -13,7 +13,6 @@ import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 export function UserMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   useEffect(() => {
     if (!open) return;
@@ -82,15 +81,20 @@ export function UserMenu() {
           </div>
 
           <div className="border-t p-1.5" style={{ borderColor: "var(--border-subtle)" }}>
-            <button
-              onClick={() => router.push("/login")}
-              role="menuitem"
-              className="flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[13px] transition-colors duration-200 hover:bg-[var(--surface-2)]"
-              style={{ color: "var(--color-loss)" }}
-            >
-              <LogOut size={15} strokeWidth={1.7} />
-              Log out
-            </button>
+            {/* A form, not a click handler: signOut is a server action, so the
+                session cookie is cleared server-side rather than the client
+                merely navigating away from a session that still exists. */}
+            <form action={signOut}>
+              <button
+                type="submit"
+                role="menuitem"
+                className="flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[13px] transition-colors duration-200 hover:bg-[var(--surface-2)]"
+                style={{ color: "var(--color-loss)" }}
+              >
+                <LogOut size={15} strokeWidth={1.7} />
+                Log out
+              </button>
+            </form>
           </div>
         </div>
       )}

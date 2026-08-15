@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { Monitor, Moon, Sun, LogOut, Download, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Panel } from "@/components/dashboard/Panel";
 import { Field } from "@/components/ui/Field";
+import { signOut } from "@/app/(auth)/actions";
+import { PinSettings } from "@/components/auth/PinSettings";
 import { SwitchRow } from "@/components/ui/Switch";
 import { formatCompact } from "@/lib/money";
 
@@ -20,7 +21,6 @@ import { formatCompact } from "@/lib/money";
 const SAMPLE = 2450058;
 
 export default function SettingsPage() {
-  const router = useRouter();
   const [notation, setNotation] = useState<"international" | "subcontinental">("international");
   const [theme, setTheme] = useState("dark");
 
@@ -64,6 +64,8 @@ export default function SettingsPage() {
               hint="Require a one-time code at every login."
               defaultOn
             />
+            <PinSettings />
+
             <div className="mt-5">
               <div className="mb-2 text-[13px] font-medium">Active sessions</div>
               <div
@@ -187,14 +189,16 @@ export default function SettingsPage() {
           wrong place.
         */}
         <Panel title="Account">
-          <button
-            onClick={() => router.push("/login")}
-            className="flex w-full items-center gap-3 rounded-[10px] border px-4 py-3 text-left text-[13px] transition-colors duration-200 hover:bg-[var(--surface-2)]"
-            style={{ borderColor: "var(--border-subtle)" }}
-          >
-            <LogOut size={15} strokeWidth={1.7} style={{ color: "var(--text-muted)" }} />
-            Log out of this device
-          </button>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-[10px] border px-4 py-3 text-left text-[13px] transition-colors duration-200 hover:bg-[var(--surface-2)]"
+              style={{ borderColor: "var(--border-subtle)" }}
+            >
+              <LogOut size={15} strokeWidth={1.7} style={{ color: "var(--text-muted)" }} />
+              Log out of this device
+            </button>
+          </form>
 
           <div className="mt-6 border-t pt-5" style={{ borderColor: "var(--border-subtle)" }}>
             <div className="mb-1 text-[13px] font-medium" style={{ color: "var(--color-loss)" }}>
