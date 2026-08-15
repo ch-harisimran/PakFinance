@@ -1,0 +1,340 @@
+@import "tailwindcss";
+@import "../design/tokens.css";
+
+/* Bind the design-system font tokens to the next/font faces loaded in app/fonts.ts.
+   Swapping in self-hosted Satoshi later is a one-line change here. */
+:root {
+  --font-display: var(--font-instrument), ui-serif, Georgia, serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "Cascadia Code", Menlo, monospace;
+}
+
+html {
+  /* Lenis drives scrolling; never let the browser fight it */
+  scroll-behavior: auto;
+}
+
+body {
+  /* The ground layer paints the background; body stays transparent so
+     grounds can crossfade beneath the content without a seam. */
+  background: var(--color-ground-ink);
+  overflow-x: hidden;
+}
+
+/* Lenis */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+/* Live price tick. Flashes the row background, never the text colour — the
+   number must stay readable at the exact moment it changed. */
+@keyframes tick-flash {
+  0% {
+    background-color: rgba(63, 191, 127, 0.16);
+  }
+  34%,
+  100% {
+    background-color: transparent;
+  }
+}
+.tick-row {
+  animation: tick-flash 3.6s var(--ease-out) infinite;
+}
+
+/* ── Auth split ─────────────────────────────────────────────────────────────
+   The two columns are moved with translateX only — no layout, no paint, so the
+   slide runs on the compositor. Scoped to lg: below that there is no split and
+   the form must stay put. */
+.split-shell {
+  position: relative;
+  min-height: 100vh;
+}
+
+.split-panel {
+  min-height: 100vh;
+}
+
+.split-panel--aside {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .split-shell {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .split-panel {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: 50%;
+    min-height: 0;
+    transform: translateX(var(--x, 0%));
+    will-change: transform;
+    /* Safety net for short windows: scroll the column rather than clip it.
+       Invisible when the content fits, which after the spacing scale below is
+       the normal case down to ~760px tall. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* The form column's vertical rhythm scales with viewport height, so signup
+   (three fields + consent) fits the same frame as login (two fields).
+   `margin-block: auto` rather than `justify-content: center` — inside a scroll
+   container, centring clips the top once content overflows; auto margins
+   collapse to 0 instead. */
+.auth-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding-block: clamp(28px, 5vh, 56px);
+}
+
+.auth-column > * {
+  margin-block: auto;
+  width: 100%;
+}
+
+.auth-brand {
+  margin-bottom: clamp(22px, 5vh, 56px);
+}
+
+.auth-eyebrow {
+  margin-bottom: clamp(10px, 1.6vh, 16px);
+}
+
+.auth-title {
+  font-size: clamp(1.75rem, 3.1vw, 2.6rem);
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+  margin-bottom: clamp(8px, 1.4vh, 12px);
+}
+
+.auth-sub {
+  margin-bottom: clamp(18px, 3.6vh, 40px);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 2.2vh, 20px);
+}
+
+.auth-footer {
+  margin-top: clamp(16px, 3vh, 32px);
+}
+
+@media (min-width: 1024px) {
+  .split-panel--aside {
+    display: block;
+  }
+}
+
+/* ── OTP orbit ──────────────────────────────────────────────────────────────
+   Supplied design. Only the colour values are changed, mapped onto the
+   Ink & Brass palette; variable names, selectors and geometry are untouched.
+
+   Sequence: four boxes on a straight line → the just-filled box glows white →
+   on the fourth digit the line gathers onto the ring and spins → green →
+   the four collapse onto the hub and resolve into a single tick. */
+.orbit {
+  --ice: #eae7e0; /* was #dceaff — cold blue-white reads wrong beside brass */
+  --ok: #3fbf7f; /* was #2ee6a8 — our gain green                            */
+  --bad: #e2574c; /* was #ff4d6a — our loss red                              */
+  --live: #c9a227; /* added: brass, marks the slot currently accepting input  */
+
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* The ring track and hub only exist once the boxes leave the line. */
+.orbit__ring,
+.orbit__hub {
+  opacity: 0;
+  transition: opacity 520ms var(--ease-out);
+}
+.orbit[data-phase="gather"] .orbit__ring,
+.orbit[data-phase="spin"] .orbit__ring,
+.orbit[data-phase="ok"] .orbit__ring,
+.orbit[data-phase="bad"] .orbit__ring,
+.orbit[data-phase="gather"] .orbit__hub,
+.orbit[data-phase="spin"] .orbit__hub,
+.orbit[data-phase="ok"] .orbit__hub,
+.orbit[data-phase="bad"] .orbit__hub {
+  opacity: 1;
+}
+
+.orbit__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* dotted on purpose: a solid ring at this size reads as a loading spinner */
+.orbit__path {
+  stroke-dasharray: 2 8;
+  stroke-width: 1.5;
+  fill: none;
+  stroke: var(--ice);
+  opacity: 0.34;
+  transition: stroke 400ms var(--ease-out), opacity 400ms var(--ease-out);
+}
+
+.orbit[data-phase="ok"] .orbit__path {
+  stroke: var(--ok);
+  opacity: 0.9;
+}
+.orbit[data-phase="bad"] .orbit__path {
+  stroke: var(--bad);
+  opacity: 0.9;
+}
+
+/* the point the four collapse onto */
+.orbit__hub {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--live);
+  box-shadow: 0 0 20px 5px rgba(201, 162, 39, 0.4);
+  transition: background 400ms var(--ease-out), box-shadow 400ms var(--ease-out);
+}
+
+.orbit[data-phase="ok"] .orbit__hub {
+  background: var(--ok);
+  box-shadow: 0 0 28px 8px rgba(63, 191, 127, 0.45);
+}
+.orbit[data-phase="bad"] .orbit__hub {
+  background: var(--bad);
+  box-shadow: 0 0 28px 8px rgba(226, 87, 76, 0.45);
+}
+
+.slot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 72px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--highlight-top);
+  transition:
+    border-color 300ms var(--ease-out),
+    background-color 300ms var(--ease-out),
+    opacity 300ms var(--ease-out);
+}
+
+/* the slot accepting input right now */
+.slot[data-live="true"] {
+  border-color: var(--live);
+  background: var(--surface-3);
+  box-shadow: var(--highlight-top), 0 0 0 3px rgba(201, 162, 39, 0.16);
+}
+
+/* the digit just entered — white border glow, which closes as the next
+   digit lands and this slot falls back to a plain filled state */
+.slot[data-glow="true"] {
+  border-color: #ffffff;
+  background: var(--surface-3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.9),
+    0 0 30px 2px rgba(255, 255, 255, 0.3);
+}
+
+.slot[data-filled="true"] {
+  border-color: rgba(234, 231, 224, 0.3);
+}
+
+.orbit[data-phase="ok"] .slot {
+  border-color: var(--ok);
+  background: rgba(63, 191, 127, 0.1);
+  box-shadow: 0 0 0 1px var(--ok), 0 0 34px 2px rgba(63, 191, 127, 0.34);
+}
+.orbit[data-phase="ok"] .slot input {
+  color: var(--ok);
+}
+.orbit[data-phase="bad"] .slot {
+  border-color: var(--bad);
+  box-shadow: 0 0 0 1px var(--bad), 0 0 30px 2px rgba(226, 87, 76, 0.3);
+}
+
+/* the single tick the four resolve into */
+.orbit__seal {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 20px;
+  border: 1px solid var(--ok);
+  background: rgba(63, 191, 127, 0.12);
+  box-shadow: 0 0 40px 6px rgba(63, 191, 127, 0.28);
+  opacity: 0;
+  transform: scale(0.82);
+  transition:
+    opacity 420ms var(--ease-out),
+    transform 520ms var(--ease-out);
+}
+.orbit[data-phase="ok"] .orbit__seal {
+  opacity: 1;
+  transform: scale(1);
+  transition-delay: 380ms;
+}
+.orbit__seal path {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+}
+.orbit[data-phase="ok"] .orbit__seal path {
+  transition: stroke-dashoffset 460ms var(--ease-out) 560ms;
+  stroke-dashoffset: 0;
+}
+
+.slot input {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  outline: none;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--ice);
+  caret-color: var(--live);
+}
+
+@keyframes orbit-shake {
+  0%,
+  100% {
+    margin-left: 0;
+  }
+  25% {
+    margin-left: -7px;
+  }
+  75% {
+    margin-left: 7px;
+  }
+}
+.orbit[data-phase="bad"] .orbit__hub {
+  animation: orbit-shake 320ms var(--ease-out) 2;
+}
+
+/* Custom cursor is only mounted on fine pointers; keep the native one as the
+   fallback so a JS failure never leaves the page cursorless. */
+@media (pointer: fine) {
+  body[data-cursor="on"] a,
+  body[data-cursor="on"] button {
+    cursor: none;
+  }
+}

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PakFinance — Palette Directions</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #0e0e10;
+    color: #e6e4e0;
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 48px 28px 80px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .page-head { margin-bottom: 52px; border-bottom: 1px solid #26262a; padding-bottom: 28px; }
+  .page-head h1 { font-size: 30px; letter-spacing: -0.02em; margin: 0 0 10px; font-weight: 600; }
+  .page-head p { margin: 0; color: #8d8a86; font-size: 15px; max-width: 62ch; line-height: 1.6; }
+
+  .dir { margin-bottom: 78px; }
+  .dir-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  .dir-head h2 { font-size: 23px; margin: 0; letter-spacing: -0.015em; font-weight: 600; }
+  .tag {
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px; border: 1px solid currentColor;
+  }
+  .tag.rec { color: #d8b24a; }
+  .tag.alt { color: #6f6c68; }
+  .dir-sub { color: #8d8a86; font-size: 14.5px; margin: 0 0 22px; max-width: 70ch; line-height: 1.6; }
+
+  .label {
+    font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #6f6c68; margin: 26px 0 11px; font-weight: 500;
+  }
+
+  /* swatches */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 9px; }
+  .sw { border-radius: 9px; overflow: hidden; border: 1px solid #26262a; }
+  .sw .chip { height: 62px; }
+  .sw .meta { padding: 8px 9px 9px; background: #161618; }
+  .sw .n { font-size: 11.5px; font-weight: 500; display: block; }
+  .sw .h { font-size: 10.5px; color: #807d79; font-family: ui-monospace, "Cascadia Code", Menlo, monospace; letter-spacing: 0.01em; }
+
+  /* scroll ground sequence */
+  .seq { display: flex; border-radius: 12px; overflow: hidden; border: 1px solid #26262a; }
+  .seq > div {
+    flex: 1; padding: 22px 14px 18px; min-height: 108px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .seq .sname { font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+  .seq .shex { font-size: 9.5px; font-family: ui-monospace, Menlo, monospace; opacity: 0.55; margin-top: 4px; }
+
+  /* hero mock */
+  .hero { border-radius: 14px; padding: 54px 46px 50px; border: 1px solid #26262a; overflow: hidden; }
+  .hero .eyebrow { font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 22px; font-weight: 500; }
+  .hero h3 { font-size: 46px; line-height: 1.02; letter-spacing: -0.035em; margin: 0 0 20px; font-weight: 600; max-width: 15ch; }
+  .hero h3 em { font-style: normal; }
+  .hero p { font-size: 15.5px; line-height: 1.6; margin: 0 0 30px; max-width: 46ch; }
+  .btns { display: flex; gap: 11px; align-items: center; flex-wrap: wrap; }
+  .btn { padding: 12px 22px; border-radius: 999px; font-size: 14px; font-weight: 550; border: 1px solid transparent; }
+  .btn.ghost { background: transparent; }
+  .figs { display: flex; gap: 30px; margin-top: 40px; padding-top: 26px; }
+  .fig .v { font-size: 25px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .fig .k { font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; margin-top: 6px; }
+  .delta { font-size: 13px; font-variant-numeric: tabular-nums; margin-left: 9px; font-weight: 550; }
+
+  .note { font-size: 13.5px; color: #8d8a86; line-height: 1.65; margin-top: 18px; max-width: 76ch; }
+  .note b { color: #c9c6c2; font-weight: 550; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="page-head">
+    <h1>PakFinance — three palette directions</h1>
+    <p>Each direction is shown three ways: the raw tokens, the <b>sequence of section grounds</b> your scroll design will move through, and a hero mock. Look at the sequence strip longest — that's the thing your landing page actually is.</p>
+  </div>
+
+  <!-- ============ A ============ -->
+  <section class="dir">
+    <div class="dir-head"><h2>A · Ink &amp; Brass</h2><span class="tag rec">Recommended</span></div>
+    <p class="dir-sub">Neutral-warm darks, ivory text, brass as the single brand accent. Green is demoted to a purely functional "gain" colour — it never appears as decoration. Gold reads as stored wealth, which in Pakistan is literal: gold <em>is</em> the default savings asset. Nothing about it looks generated.</p>
+
+    <div class="label">Tokens</div>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#0A0B0D"></div><div class="meta"><span class="n">ground/ink</span><span class="h">#0A0B0D</span></div></div>
+      <div class="sw"><div class="chip" style="background:#101318"></div><div class="meta"><span class="n">ground/slate</span><span class="h">#101318</span></div></div>
+      <div class="sw"><div class="chip" style="background:#17150F"></div><div class="meta"><span class="n">ground/warm</span><span class="h">#17150F</span></div></div>
+      <div class="sw"><div class="chip" style="background:#0E1C17"></div><div class="meta"><span class="n">ground/pine</span><span class="h">#0E1C17</span></div></div>
+      <div class="sw"><div class="chip" style="background:#F2EEE6"></div><div class="meta"><span class="n">ground/paper</span><span class="h">#F2EEE6</span></div></div>
+      <div class="sw"><div class="chip" style="background:#EAE7E0"></div><div class="meta"><span class="n">text/ivory</span><span class="h">#EAE7E0</span></div></div>
+      <div class="sw"><div class="chip" style="background:#93908A"></div><div class="meta"><span class="n">text/muted</span><span class="h">#93908A</span></div></div>
+      <div class="sw"><div class="chip" style="background:#C9A227"></div><div class="meta"><span class="n">accent/brass</span><span class="h">#C9A227</span></div></div>
+      <div class="sw"><div class="chip" style="background:#E6C767"></div><div class="meta"><span class="n">accent/lit</span><span class="h">#E6C767</span></div></div>
+      <div class="sw"><div class="chip" style="background:#3FBF7F"></div><div class="meta"><span class="n">gain</span><span class="h">#3FBF7F</span></div></div>
+      <div class="sw"><div class="chip" style="background:#E2574C"></div><div class="meta"><span class="n">loss</span><span class="h">#E2574C</span></div></div>
+    </div>
+
+    <div class="label">Section ground sequence (top → bottom of page)</div>
+    <div class="seq">
+      <div style="background:#0A0B0D;color:#EAE7E0"><span class="sname">Hero</span><span class="shex">#0A0B0D</span></div>
+      <div style="background:#101318;color:#EAE7E0"><span class="sname">Features</span><span class="shex">#101318</span></div>
+      <div style="background:#17150F;color:#EAE7E0"><span class="sname">Portfolio</span><span class="shex">#17150F</span></div>
+      <div style="background:#F2EEE6;color:#14130F"><span class="sname">How it works</span><span class="shex">#F2EEE6</span></div>
+      <div style="background:#0E1C17;color:#EAE7E0"><span class="sname">Security</span><span class="shex">#0E1C17</span></div>
+      <div style="background:#0A0B0D;color:#EAE7E0"><span class="sname">CTA</span><span class="shex">#0A0B0D</span></div>
+    </div>
+
+    <div class="label">Hero</div>
+    <div class="hero" style="background:#0A0B0D">
+      <div class="eyebrow" style="color:#C9A227">A calmer way to build wealth · Pakistan</div>
+      <h3 style="color:#EAE7E0">Your entire financial life. <em style="color:#93908A">One intelligent view.</em></h3>
+      <p style="color:#93908A">Track your investments, savings, loans, goals, and net worth — all in one beautifully simple place.</p>
+      <div class="btns">
+        <span class="btn" style="background:#C9A227;color:#0A0B0D">Get started — it's free</span>
+        <span class="btn ghost" style="color:#EAE7E0;border-color:rgba(234,231,224,0.16)">Explore PakFinance</span>
+      </div>
+      <div class="figs" style="border-top:1px solid rgba(234,231,224,0.09)">
+        <div class="fig"><div class="v" style="color:#EAE7E0">PKR 2,450,000<span class="delta" style="color:#3FBF7F">+8.42%</span></div><div class="k" style="color:#93908A">Net worth</div></div>
+        <div class="fig"><div class="v" style="color:#EAE7E0">1,650,000</div><div class="k" style="color:#93908A">Invested</div></div>
+        <div class="fig"><div class="v" style="color:#EAE7E0">72%</div><div class="k" style="color:#93908A">Goals on track</div></div>
+      </div>
+    </div>
+    <p class="note"><b>Watch for:</b> brass must stay rare — eyebrows, one button, thin rules, active states. The moment it's on five things at once it turns into a crypto site.</p>
+  </section>
+
+  <!-- ============ B ============ -->
+  <section class="dir">
+    <div class="dir-head"><h2>B · Paper &amp; Ledger</h2><span class="tag alt">Boldest</span></div>
+    <p class="dir-sub">Light-first. Warm paper ground, near-black ink, deep flag-green as brand, burnt ochre as the second voice. Reads like a private wealth manager's statement rather than a crypto dashboard. Effectively zero AI-generated landing pages go light-first premium, so this is the strongest differentiator — and the hardest to keep looking rich.</p>
+
+    <div class="label">Tokens</div>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#F7F4EE"></div><div class="meta"><span class="n">ground/paper</span><span class="h">#F7F4EE</span></div></div>
+      <div class="sw"><div class="chip" style="background:#EFEBE2"></div><div class="meta"><span class="n">ground/linen</span><span class="h">#EFEBE2</span></div></div>
+      <div class="sw"><div class="chip" style="background:#E5DFD2"></div><div class="meta"><span class="n">ground/sand</span><span class="h">#E5DFD2</span></div></div>
+      <div class="sw"><div class="chip" style="background:#0C2A1E"></div><div class="meta"><span class="n">ground/forest</span><span class="h">#0C2A1E</span></div></div>
+      <div class="sw"><div class="chip" style="background:#14130F"></div><div class="meta"><span class="n">text/ink</span><span class="h">#14130F</span></div></div>
+      <div class="sw"><div class="chip" style="background:#6B675E"></div><div class="meta"><span class="n">text/muted</span><span class="h">#6B675E</span></div></div>
+      <div class="sw"><div class="chip" style="background:#0B5D3B"></div><div class="meta"><span class="n">accent/green</span><span class="h">#0B5D3B</span></div></div>
+      <div class="sw"><div class="chip" style="background:#C2611D"></div><div class="meta"><span class="n">accent/ochre</span><span class="h">#C2611D</span></div></div>
+      <div class="sw"><div class="chip" style="background:#0B5D3B"></div><div class="meta"><span class="n">gain</span><span class="h">#0B5D3B</span></div></div>
+      <div class="sw"><div class="chip" style="background:#B23B2E"></div><div class="meta"><span class="n">loss</span><span class="h">#B23B2E</span></div></div>
+    </div>
+
+    <div class="label">Section ground sequence (top → bottom of page)</div>
+    <div class="seq">
+      <div style="background:#F7F4EE;color:#14130F"><span class="sname">Hero</span><span class="shex">#F7F4EE</span></div>
+      <div style="background:#EFEBE2;color:#14130F"><span class="sname">Features</span><span class="shex">#EFEBE2</span></div>
+      <div style="background:#E5DFD2;color:#14130F"><span class="sname">Portfolio</span><span class="shex">#E5DFD2</span></div>
+      <div style="background:#0C2A1E;color:#F7F4EE"><span class="sname">How it works</span><span class="shex">#0C2A1E</span></div>
+      <div style="background:#EFEBE2;color:#14130F"><span class="sname">Security</span><span class="shex">#EFEBE2</span></div>
+      <div style="background:#0C2A1E;color:#F7F4EE"><span class="sname">CTA</span><span class="shex">#0C2A1E</span></div>
+    </div>
+
+    <div class="label">Hero</div>
+    <div class="hero" style="background:#F7F4EE">
+      <div class="eyebrow" style="color:#C2611D">A calmer way to build wealth · Pakistan</div>
+      <h3 style="color:#14130F">Your entire financial life. <em style="color:#0B5D3B">One intelligent view.</em></h3>
+      <p style="color:#6B675E">Track your investments, savings, loans, goals, and net worth — all in one beautifully simple place.</p>
+      <div class="btns">
+        <span class="btn" style="background:#0B5D3B;color:#F7F4EE">Get started — it's free</span>
+        <span class="btn ghost" style="color:#14130F;border-color:rgba(20,19,15,0.18)">Explore PakFinance</span>
+      </div>
+      <div class="figs" style="border-top:1px solid rgba(20,19,15,0.12)">
+        <div class="fig"><div class="v" style="color:#14130F">PKR 2,450,000<span class="delta" style="color:#0B5D3B">+8.42%</span></div><div class="k" style="color:#6B675E">Net worth</div></div>
+        <div class="fig"><div class="v" style="color:#14130F">1,650,000</div><div class="k" style="color:#6B675E">Invested</div></div>
+        <div class="fig"><div class="v" style="color:#14130F">72%</div><div class="k" style="color:#6B675E">Goals on track</div></div>
+      </div>
+    </div>
+    <p class="note"><b>Watch for:</b> light themes live or die on shadow discipline — soft, warm, multi-layer, never grey-blue. And your app itself will still want a dark mode, so you'd be maintaining both from day one.</p>
+  </section>
+
+  <!-- ============ C ============ -->
+  <section class="dir">
+    <div class="dir-head"><h2>C · Midnight &amp; Saffron</h2><span class="tag alt">Warmest</span></div>
+    <p class="dir-sub">Deep indigo-black grounds with a saffron/marigold accent. Keeps the dark drama of your reference but swaps the mint for a warm accent and untints the neutrals toward indigo instead of green. Subcontinental warmth without tipping into kitsch.</p>
+
+    <div class="label">Tokens</div>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#080A14"></div><div class="meta"><span class="n">ground/midnight</span><span class="h">#080A14</span></div></div>
+      <div class="sw"><div class="chip" style="background:#0D1020"></div><div class="meta"><span class="n">ground/indigo</span><span class="h">#0D1020</span></div></div>
+      <div class="sw"><div class="chip" style="background:#141334"></div><div class="meta"><span class="n">ground/violet</span><span class="h">#141334</span></div></div>
+      <div class="sw"><div class="chip" style="background:#F4EFE4"></div><div class="meta"><span class="n">ground/paper</span><span class="h">#F4EFE4</span></div></div>
+      <div class="sw"><div class="chip" style="background:#E9E7F0"></div><div class="meta"><span class="n">text/pearl</span><span class="h">#E9E7F0</span></div></div>
+      <div class="sw"><div class="chip" style="background:#8C8A9C"></div><div class="meta"><span class="n">text/muted</span><span class="h">#8C8A9C</span></div></div>
+      <div class="sw"><div class="chip" style="background:#E8A33D"></div><div class="meta"><span class="n">accent/saffron</span><span class="h">#E8A33D</span></div></div>
+      <div class="sw"><div class="chip" style="background:#F5C173"></div><div class="meta"><span class="n">accent/lit</span><span class="h">#F5C173</span></div></div>
+      <div class="sw"><div class="chip" style="background:#35C48C"></div><div class="meta"><span class="n">gain</span><span class="h">#35C48C</span></div></div>
+      <div class="sw"><div class="chip" style="background:#F26D5B"></div><div class="meta"><span class="n">loss</span><span class="h">#F26D5B</span></div></div>
+    </div>
+
+    <div class="label">Section ground sequence (top → bottom of page)</div>
+    <div class="seq">
+      <div style="background:#080A14;color:#E9E7F0"><span class="sname">Hero</span><span class="shex">#080A14</span></div>
+      <div style="background:#0D1020;color:#E9E7F0"><span class="sname">Features</span><span class="shex">#0D1020</span></div>
+      <div style="background:#141334;color:#E9E7F0"><span class="sname">Portfolio</span><span class="shex">#141334</span></div>
+      <div style="background:#F4EFE4;color:#14130F"><span class="sname">How it works</span><span class="shex">#F4EFE4</span></div>
+      <div style="background:#0D1020;color:#E9E7F0"><span class="sname">Security</span><span class="shex">#0D1020</span></div>
+      <div style="background:#080A14;color:#E9E7F0"><span class="sname">CTA</span><span class="shex">#080A14</span></div>
+    </div>
+
+    <div class="label">Hero</div>
+    <div class="hero" style="background:#080A14">
+      <div class="eyebrow" style="color:#E8A33D">A calmer way to build wealth · Pakistan</div>
+      <h3 style="color:#E9E7F0">Your entire financial life. <em style="color:#8C8A9C">One intelligent view.</em></h3>
+      <p style="color:#8C8A9C">Track your investments, savings, loans, goals, and net worth — all in one beautifully simple place.</p>
+      <div class="btns">
+        <span class="btn" style="background:#E8A33D;color:#080A14">Get started — it's free</span>
+        <span class="btn ghost" style="color:#E9E7F0;border-color:rgba(233,231,240,0.16)">Explore PakFinance</span>
+      </div>
+      <div class="figs" style="border-top:1px solid rgba(233,231,240,0.09)">
+        <div class="fig"><div class="v" style="color:#E9E7F0">PKR 2,450,000<span class="delta" style="color:#35C48C">+8.42%</span></div><div class="k" style="color:#8C8A9C">Net worth</div></div>
+        <div class="fig"><div class="v" style="color:#E9E7F0">1,650,000</div><div class="k" style="color:#8C8A9C">Invested</div></div>
+        <div class="fig"><div class="v" style="color:#E9E7F0">72%</div><div class="k" style="color:#8C8A9C">Goals on track</div></div>
+      </div>
+    </div>
+    <p class="note"><b>Watch for:</b> indigo + saffron drifts toward "fintech startup deck" if the violet ground gets too saturated. Keep #141334 as the deepest it ever goes.</p>
+  </section>
+
+</div>
+</body>
+</html>

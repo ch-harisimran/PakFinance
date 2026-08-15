@@ -1,41 +1,21 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Root-level ignores. Workspace-specific ignores live in each workspace
+# (frontend/.gitignore, and backend/.gitignore when it exists), so patterns
+# stay next to the thing they describe.
 
 # dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+node_modules/
 
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
+# env — never commit secrets
 .env*
 
-# vercel
-.vercel
+# MCP server config (contains an inline API key)
+.mcp.json
 
-# typescript
+# build output
+dist/
+build/
 *.tsbuildinfo
-next-env.d.ts
+
+# editor / OS
+.DS_Store
+Thumbs.db
