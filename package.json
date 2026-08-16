@@ -9,6 +9,12 @@
     "start": "npm --prefix frontend run start",
     "lint": "npm --prefix frontend run lint",
     "typecheck": "npm --prefix frontend run typecheck",
-    "install:all": "npm --prefix frontend install"
+    "install:all": "npm --prefix frontend install",
+    "sync:psx": "npm --prefix frontend run sync:psx --",
+    "sync:nav": "npm --prefix frontend run sync:nav --",
+    "backfill": "npm --prefix frontend run backfill --",
+    "snapshot": "npm --prefix frontend run snapshot --",
+    "reminders": "npm --prefix frontend run reminders --",
+    "db:migrate": "npm --prefix frontend run db:migrate"
   }
 }
