@@ -1,5 +1,5 @@
 import { Meter } from "@/components/ui/Meter";
-import { formatCompact } from "@/lib/money";
+import { formatCompact, type Notation } from "@/lib/money";
 
 /**
  * Categorical breakdown: a stacked bar for share-of-whole, plus a legend where
@@ -12,9 +12,11 @@ import { formatCompact } from "@/lib/money";
  */
 export function Breakdown({
   items,
+  notation,
   className = "",
 }: {
   items: { key: string; value: number; pct: number; color: string }[];
+  notation: Notation;
   className?: string;
 }) {
   const max = Math.max(...items.map((i) => i.pct));
@@ -43,7 +45,7 @@ export function Breakdown({
               />
               <span className="min-w-0 flex-1 truncate text-[13px]">{i.key}</span>
               <span className="text-[12px]" style={{ color: "var(--text-faint)" }} data-numeric>
-                {formatCompact(i.value)}
+                {formatCompact(i.value, notation)}
               </span>
               <span className="w-[46px] text-right text-[13px] font-semibold" data-numeric>
                 {i.pct.toFixed(1)}%

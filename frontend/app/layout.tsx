@@ -5,6 +5,10 @@ import { NoiseOverlay } from "@/components/layout/NoiseOverlay";
 import { Cursor } from "@/components/motion/Cursor";
 
 export const metadata: Metadata = {
+  // Open Graph and Twitter images have to be absolute URLs, and static metadata
+  // cannot read the request headers the way `siteOrigin()` does in server
+  // actions. Without this every shared link would advertise a localhost image.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: "PakFinance — Your finances. One view.",
   description:
     "Track your PSX holdings, mutual funds, bank accounts, loans, and goals in one place. PakFinance is a personal finance tracking tool for Pakistan.",

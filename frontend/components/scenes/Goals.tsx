@@ -55,6 +55,7 @@ export function Goals() {
 
   return (
     <Section
+      id="goals"
       scene="goals"
       ground="paper"
       className="py-[clamp(140px,20vh,220px)]"

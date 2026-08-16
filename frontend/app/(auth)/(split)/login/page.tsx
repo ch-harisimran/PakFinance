@@ -8,6 +8,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { signIn, type ActionState } from "@/app/(auth)/actions";
+import { submitting } from "@/lib/form";
 
 /**
  * Log in — form on the LEFT, interactive panel on the right.
@@ -20,7 +21,7 @@ function LoginForm() {
   const next = useSearchParams().get("next") ?? "/dashboard";
 
   return (
-    <form action={action} className="auth-form">
+    <form onSubmit={submitting(action)} className="auth-form">
       <input type="hidden" name="next" value={next} />
 
       <Field

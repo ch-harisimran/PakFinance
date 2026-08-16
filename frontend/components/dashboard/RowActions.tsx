@@ -51,6 +51,7 @@ export function RowActions({
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
   const wrap = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
 
   // Click-outside and Escape. Bound only while the menu is open — a listener per
   // row on every render would mean hundreds of them on a long ledger.
@@ -61,7 +62,11 @@ export function RowActions({
       if (!wrap.current?.contains(e.target as Node)) setMenu(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenu(false);
+      if (e.key !== "Escape") return;
+      setMenu(false);
+      // Escape must not drop the user at the top of the document. If focus is
+      // inside the panel it has to come back to the control that opened it.
+      if (wrap.current?.contains(document.activeElement)) trigger.current?.focus();
     };
 
     document.addEventListener("mousedown", onDown);
@@ -85,12 +90,21 @@ export function RowActions({
   }
 
   return (
-    <div ref={wrap} className="relative flex-none">
+    <div
+      ref={wrap}
+      className="relative flex-none"
+      // Tabbing past Delete should close the panel behind you, the same way
+      // clicking away does. React's onBlur is focusout, so it bubbles from the
+      // buttons and `relatedTarget` is wherever focus landed.
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setMenu(false);
+      }}
+    >
       <button
+        ref={trigger}
         type="button"
         onClick={() => setMenu((v) => !v)}
         aria-label={`Actions for ${name}`}
-        aria-haspopup="menu"
         aria-expanded={menu}
         className="grid h-8 w-8 place-items-center rounded-[9px] transition-colors duration-200 hover:bg-[var(--surface-2)]"
         style={{ color: "var(--text-faint)" }}
@@ -98,9 +112,15 @@ export function RowActions({
         <MoreHorizontal size={16} strokeWidth={1.8} />
       </button>
 
+      {/*
+        A disclosure, not `role="menu"`. That role puts assistive technology into
+        an application mode where Tab stops working and arrow keys are expected
+        to move between items — a contract this panel never implemented. Two
+        plain buttons revealed under an `aria-expanded` trigger behave correctly
+        with Tab, Enter and Escape without pretending to be more.
+      */}
       {menu && (
         <div
-          role="menu"
           className={`absolute top-9 z-20 w-[148px] overflow-hidden rounded-[10px] border py-1 ${
             align === "right" ? "right-0" : "left-0"
           }`}
@@ -112,7 +132,6 @@ export function RowActions({
         >
           <button
             type="button"
-            role="menuitem"
             onClick={() => {
               setMenu(false);
               setEditing(true);
@@ -124,7 +143,6 @@ export function RowActions({
           </button>
           <button
             type="button"
-            role="menuitem"
             onClick={() => {
               setMenu(false);
               setConfirming(true);

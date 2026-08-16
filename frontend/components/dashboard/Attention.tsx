@@ -92,7 +92,10 @@ export function Attention({
                 </p>
                 <Link
                   href={a.href}
-                  className="mt-3 inline-block text-[12.5px] underline-offset-4 hover:underline"
+                  // min-h clears WCAG 2.5.8's 24px target; as bare inline text
+                  // these were 20px, which is a poor thumb target on the screen
+                  // where they matter most.
+                  className="mt-3 inline-flex min-h-[24px] items-center text-[12.5px] underline-offset-4 hover:underline"
                   style={{ color: "var(--brass-text)" }}
                 >
                   {a.action}

@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/profile";
+import type { Notation } from "@/lib/money";
 
 /**
  * Reads for user-owned data.
@@ -53,6 +54,19 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
     theme: data?.theme ?? "dark",
     lastSignInAt: user.last_sign_in_at ?? null,
   };
+});
+
+/**
+ * The signed-in user's number notation, for the compact formatters.
+ *
+ * Threaded through as an explicit prop rather than read from a context or an
+ * ambient store: half the components that format money are server components and
+ * half are client components, and a prop is the one mechanism both understand.
+ * Cached, so asking for it on every screen costs nothing after the first call.
+ */
+export const getNotation = cache(async (): Promise<Notation> => {
+  const profile = await getProfile();
+  return profile?.notation ?? "international";
 });
 
 export interface AccountRow {

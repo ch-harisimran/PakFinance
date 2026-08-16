@@ -1,18 +1,37 @@
 import { Logo } from "@/components/brand/Logo";
 import { Reveal } from "@/components/motion/Reveal";
 
+/**
+ * Every link goes somewhere real.
+ *
+ * The product and company columns are anchors into the sections already on this
+ * page; legal are their own routes. A footer full of `href="#"` is a promise the
+ * site cannot keep, and it is the first thing a careful visitor tests.
+ */
 const COLUMNS = [
   {
     title: "Product",
-    links: ["Features", "PSX", "Mutual Funds", "Goals"],
+    links: [
+      { label: "Features", href: "/#features" },
+      { label: "PSX", href: "/#psx" },
+      { label: "Mutual Funds", href: "/#funds" },
+      { label: "Goals", href: "/#goals" },
+    ],
   },
   {
     title: "Company",
-    links: ["About", "Security", "Contact"],
+    links: [
+      { label: "How it works", href: "/#how-it-works" },
+      { label: "Security", href: "/#security" },
+      { label: "Contact", href: "mailto:support@pakfinance.app" },
+    ],
   },
   {
     title: "Legal",
-    links: ["Privacy", "Terms"],
+    links: [
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
+    ],
   },
 ];
 
@@ -52,13 +71,17 @@ export function Footer() {
                 </div>
                 <ul className="flex flex-col gap-3.5">
                   {col.links.map((l) => (
-                    <li key={l}>
+                    <li key={l.label}>
+                      {/* inline-flex + min-height so the tap target clears the
+                          24px WCAG 2.5.8 minimum. As bare inline text these were
+                          19px tall — fine with a mouse, fiddly with a thumb, and
+                          this footer is mostly read on a phone. */}
                       <a
-                        href="#"
-                        className="text-[14px] transition-colors duration-200 hover:text-[var(--text-primary)]"
+                        href={l.href}
+                        className="inline-flex min-h-[24px] items-center text-[14px] transition-colors duration-200 hover:text-[var(--text-primary)]"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        {l}
+                        {l.label}
                       </a>
                     </li>
                   ))}

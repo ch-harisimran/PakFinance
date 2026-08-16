@@ -57,6 +57,41 @@
       "when": 1786811540190,
       "tag": "0007_loan_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786811540191,
+      "tag": "0008_sectors_and_indices",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786811540192,
+      "tag": "0009_corporate_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786811540193,
+      "tag": "0010_assets_budgets_committees",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786811540194,
+      "tag": "0011_rate_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786811540195,
+      "tag": "0012_run_trigger",
+      "breakpoints": true
     }
   ]
 }

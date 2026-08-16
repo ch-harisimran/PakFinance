@@ -6,6 +6,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { requestPasswordReset, type ActionState } from "@/app/(auth)/actions";
+import { submitting } from "@/lib/form";
 
 /**
  * Forgot password — step one of two.
@@ -37,7 +38,7 @@ export default function ForgotPasswordPage() {
         </>
       }
     >
-      <form action={action} className="auth-form">
+      <form onSubmit={submitting(action)} className="auth-form">
         <Field
           label="Email"
           name="email"

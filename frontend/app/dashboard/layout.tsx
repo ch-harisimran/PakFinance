@@ -1,9 +1,22 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { AppLock } from "@/components/auth/AppLock";
 import { getProfile, getLoans, getGoals, loanOutstanding, goalProgress } from "@/lib/queries";
 import { buildAlerts } from "@/lib/alerts";
+
+/**
+ * Every dashboard screen names itself in the tab, the history entry and the
+ * screen reader's page announcement (WCAG 2.4.2). The template lives here so
+ * each page only states its own name, and `robots` is set once for the whole
+ * segment — none of this is public, and a signed-in screen must never be
+ * indexable even if a URL escapes into the wild.
+ */
+export const metadata: Metadata = {
+  title: { template: "%s · PakFinance", default: "Dashboard · PakFinance" },
+  robots: { index: false, follow: false, nocache: true },
+};
 
 /**
  * The chrome around every dashboard screen.
@@ -32,7 +45,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         className="flex min-h-screen"
         style={{ backgroundColor: "var(--color-ground-ink)", color: "var(--text-primary)" }}
       >
-        <Sidebar />
+        <Sidebar profile={profile} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar profile={profile} alerts={alerts} />
           {children}

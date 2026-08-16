@@ -26,6 +26,14 @@ import { funds, securities } from "@/lib/db/schema/market";
  * float — lib/money.ts already formats from integers. Paisa amounts stay far
  * below 2^53 (PKR 10 crore = 10,000,000,000 paisa), so `mode: "number"` is safe
  * and much easier to work with than BigInt.
+ *
+ * SOME TABLES HERE ARE NEVER IMPORTED, AND THAT IS CORRECT. User-owned rows are
+ * read and written through Supabase/PostgREST so that RLS applies, not through
+ * Drizzle — so `goalContributions`, `committeePayments` and `zakatAssessments`
+ * have no importer. They are not dead code: this file is the canonical
+ * description of the database, and drizzle-kit diffs migrations against it.
+ * Delete a table from here and the next generated migration proposes DROPping
+ * it, taking the data with it.
  */
 
 const paisa = (name: string) => bigint(name, { mode: "number" });
@@ -269,6 +277,154 @@ export const fundTransactions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("fund_txn_user_idx").on(t.userId, t.fundId)],
+);
+
+export const assetKind = pgEnum("asset_kind", [
+  "GOLD",
+  "SILVER",
+  "PROPERTY",
+  "VEHICLE",
+  "CRYPTO",
+  "FOREIGN_CURRENCY",
+  "OTHER",
+]);
+
+export const recurrence = pgEnum("recurrence", ["WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"]);
+
+/**
+ * What you own that is not a share, a fund unit or a bank balance.
+ *
+ * Gold above all: it is how a great many Pakistani households hold wealth, and
+ * it is Zakat-relevant. There is no gold or property price feed, so `valuePaisa`
+ * is stated by the user and dated — an honest manual number beats an invented
+ * automatic one.
+ */
+export const assets = pgTable(
+  "assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    kind: assetKind("kind").notNull().default("OTHER"),
+    name: text("name").notNull(),
+    /** Optional context: 11 tola, 250 sq yd, 0.4 BTC. */
+    quantity: numeric("quantity", { precision: 18, scale: 4 }),
+    unit: text("unit"),
+    costPaisa: paisa("cost_paisa"),
+    valuePaisa: paisa("value_paisa").notNull().default(0),
+    asOf: date("as_of").notNull(),
+    /** The user decides: rulings differ, and this app is not a mufti. */
+    zakatable: boolean("zakatable").notNull().default(false),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("assets_user_idx").on(t.userId)],
+);
+
+/** A monthly ceiling per category. Spend is derived from the ledger, never stored. */
+export const budgets = pgTable("budgets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  category: text("category").notNull(),
+  limitPaisa: paisa("limit_paisa").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Entries that repeat: salary, rent, utilities.
+ *
+ * `lastPostedOn` is the idempotency guard — the job posts only when the due date
+ * has arrived and has not already been posted, so a retried run cannot charge a
+ * month's rent twice.
+ */
+export const recurringTransactions = pgTable(
+  "recurring_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
+    label: text("label").notNull(),
+    category: text("category"),
+    /** Signed like transactions: positive in, negative out. */
+    amountPaisa: paisa("amount_paisa").notNull(),
+    cadence: recurrence("cadence").notNull().default("MONTHLY"),
+    /** 1–31 for monthly and longer; 0–6 (Sunday first) for weekly. */
+    dayOfPeriod: smallint("day_of_period").notNull().default(1),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date"),
+    lastPostedOn: date("last_posted_on"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("recurring_user_idx").on(t.userId)],
+);
+
+/**
+ * A committee (BC): N members each pay in monthly, one takes the pot each round.
+ *
+ * Fits nothing else in this schema because it is two things in sequence — saving
+ * before your turn, a debt repaid by instalment after it.
+ */
+export const committees = pgTable(
+  "committees",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    name: text("name").notNull(),
+    organiser: text("organiser"),
+    members: smallint("members").notNull(),
+    monthlyPaisa: paisa("monthly_paisa").notNull(),
+    startMonth: date("start_month").notNull(),
+    /** Which round is yours, 1-based. Null until the draw decides. */
+    payoutPosition: smallint("payout_position"),
+    payoutReceived: boolean("payout_received").notNull().default(false),
+    payoutDate: date("payout_date"),
+    isSettled: boolean("is_settled").notNull().default(false),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("committees_user_idx").on(t.userId)],
+);
+
+export const committeePayments = pgTable(
+  "committee_payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    committeeId: uuid("committee_id")
+      .notNull()
+      .references(() => committees.id, { onDelete: "cascade" }),
+    amountPaisa: paisa("amount_paisa").notNull(),
+    paidAt: date("paid_at").notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("committee_payments_user_idx").on(t.userId)],
+);
+
+/**
+ * A Zakat assessment, kept as a record.
+ *
+ * The nisab is stored with the assessment rather than recomputed: it tracks the
+ * gold price, so re-deriving an old year against today's nisab would give a
+ * different answer to the one the user actually acted on.
+ */
+export const zakatAssessments = pgTable(
+  "zakat_assessments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    assessedOn: date("assessed_on").notNull(),
+    nisabPaisa: paisa("nisab_paisa").notNull(),
+    assetsPaisa: paisa("assets_paisa").notNull(),
+    deductionsPaisa: paisa("deductions_paisa").notNull().default(0),
+    zakatablePaisa: paisa("zakatable_paisa").notNull(),
+    duePaisa: paisa("due_paisa").notNull(),
+    paidPaisa: paisa("paid_paisa").notNull().default(0),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("zakat_user_idx").on(t.userId, t.assessedOn)],
 );
 
 /** One row per user per day, written by the snapshot job. */

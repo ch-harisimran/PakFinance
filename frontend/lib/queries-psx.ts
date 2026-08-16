@@ -2,9 +2,9 @@ import "server-only";
 
 import { inArray, gte, and, ilike, eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { priceLatest, pricesDaily, securities } from "@/lib/db/schema/market";
+import { priceLatest, pricesDaily, securities, sectors, corporateActions } from "@/lib/db/schema/market";
 import { createClient } from "@/lib/supabase/server";
-import type { Trade } from "@/lib/market/holdings";
+import type { Trade, CorporateAction } from "@/lib/market/holdings";
 
 /**
  * PSX portfolio data.
@@ -98,9 +98,23 @@ export async function getDailyBars(symbols: string[], from: string) {
   return bars;
 }
 
-/** Company names and sectors for the symbols a user holds. */
+export interface SecurityMeta {
+  name: string;
+  /** PSX sector code, e.g. "0813". */
+  sector: string | null;
+  /**
+   * Readable sector, when `market.sectors` has been seeded. Falls back to
+   * "Sector 0813" rather than inventing a name — a wrong industry label on
+   * someone's holdings is worse than an unlovely one.
+   */
+  sectorName: string;
+  kind: string;
+  indices: string[];
+}
+
+/** Company names, sectors and index membership for the symbols a user holds. */
 export async function getSecurityMeta(symbols: string[]) {
-  const out = new Map<string, { name: string; sector: string | null; kind: string }>();
+  const out = new Map<string, SecurityMeta>();
   if (!symbols.length) return out;
 
   const rows = await db
@@ -109,12 +123,65 @@ export async function getSecurityMeta(symbols: string[]) {
       name: securities.name,
       sector: securities.sector,
       kind: securities.kind,
+      indices: securities.indices,
+      sectorName: sectors.name,
     })
     .from(securities)
+    .leftJoin(sectors, eq(sectors.code, securities.sector))
     .where(inArray(securities.symbol, symbols));
 
-  for (const r of rows) out.set(r.symbol, { name: r.name, sector: r.sector, kind: r.kind });
+  for (const r of rows) {
+    out.set(r.symbol, {
+      name: r.name,
+      sector: r.sector,
+      sectorName: r.sectorName ?? (r.sector ? `Sector ${r.sector}` : "Unclassified"),
+      kind: r.kind,
+      indices: r.indices ?? [],
+    });
+  }
   return out;
+}
+
+/**
+ * Corporate actions that change a position without the user trading.
+ *
+ * Only the applicable kinds are returned. BONUS, RIGHT and DIVIDEND rows may
+ * exist for reference, but the user records those as trades from their broker
+ * note — returning them here would double the shares.
+ *
+ * Nothing populates this table automatically: PSX publishes no machine-readable
+ * corporate actions feed we have a licence to. Seed it with
+ * `npm run seed:actions -- --file actions.csv`.
+ */
+export async function getCorporateActions(symbols: string[]): Promise<CorporateAction[]> {
+  if (!symbols.length) return [];
+
+  const rows = await db
+    .select({
+      symbol: corporateActions.symbol,
+      kind: corporateActions.kind,
+      exDate: corporateActions.exDate,
+      ratioFrom: corporateActions.ratioFrom,
+      ratioTo: corporateActions.ratioTo,
+      newSymbol: corporateActions.newSymbol,
+    })
+    .from(corporateActions)
+    .where(
+      and(
+        inArray(corporateActions.symbol, symbols),
+        inArray(corporateActions.kind, ["SPLIT", "SYMBOL_CHANGE", "MERGER"]),
+      ),
+    )
+    .orderBy(corporateActions.exDate);
+
+  return rows.map((r) => ({
+    symbol: r.symbol,
+    kind: r.kind as CorporateAction["kind"],
+    exDate: String(r.exDate),
+    ratioFrom: r.ratioFrom === null ? null : Number(r.ratioFrom),
+    ratioTo: r.ratioTo === null ? null : Number(r.ratioTo),
+    newSymbol: r.newSymbol,
+  }));
 }
 
 /** Symbol lookup for the trade form. Prefix matches first — people type tickers. */

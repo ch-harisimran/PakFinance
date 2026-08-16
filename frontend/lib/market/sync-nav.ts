@@ -1,5 +1,6 @@
 import { and, desc, eq, sql as raw } from "drizzle-orm";
 import { db } from "@/lib/db/client";
+import { runTrigger } from "@/lib/market/run-context";
 import { fundNavs, funds, syncRuns } from "@/lib/db/schema/market";
 import { deriveAmc, fetchNavReport, parseNavReport, type NavRow } from "@/lib/market/mufap";
 
@@ -60,6 +61,7 @@ export async function runNavSync({
         await db.insert(syncRuns).values({
           job: "sync-nav",
           status: "skipped",
+          trigger: runTrigger(),
           reason: "too-soon",
           finishedAt: new Date(),
         });
@@ -74,7 +76,7 @@ export async function runNavSync({
 
   const [run] = await db
     .insert(syncRuns)
-    .values({ job: "sync-nav", status: "running" })
+    .values({ job: "sync-nav", status: "running", trigger: runTrigger() })
     .returning({ id: syncRuns.id });
 
   try {

@@ -9,7 +9,8 @@ import {
   TransactionsPanel,
   GoalsPanel,
 } from "@/components/dashboard/Panels";
-import { getDashboard, getNetWorthSeries, currentUserId } from "@/lib/queries-networth";
+import { getDashboard, getNetWorthSeries } from "@/lib/queries-networth";
+import { getNotation } from "@/lib/queries";
 import { getMarketState } from "@/lib/market/sessions";
 
 /**
@@ -23,12 +24,21 @@ import { getMarketState } from "@/lib/market/sessions";
  * each card issuing its own queries and multiplying round trips.
  */
 export default async function DashboardPage() {
-  const userId = await currentUserId();
-  const [data, series, market] = await Promise.all([
-    getDashboard(),
-    userId ? getNetWorthSeries(userId) : Promise.resolve([]),
-    getMarketState(),
-  ]);
+  /**
+   * Sequential, not Promise.all. `getDashboard()` already runs three concurrent
+   * Drizzle reads internally; adding the net-worth series and the market state
+   * alongside it put this page at exactly the client's pool `max` of 5, where
+   * one more concurrent read would hang it forever with no error (see the
+   * warning in lib/db/client.ts). Awaiting in turn caps concurrency at three and
+   * gives the next person to add a panel room to breathe.
+   *
+   * The cost is small: these are three fast reads against a warm pool, not three
+   * network calls to somewhere far away.
+   */
+  const data = await getDashboard();
+  const series = await getNetWorthSeries();
+  const market = await getMarketState();
+  const notation = await getNotation();
 
   const { breakdown, flow, loans, goals, holdings, positions, fundMeta, txns, accounts, invested } = data;
 
@@ -75,8 +85,8 @@ export default async function DashboardPage() {
 
       {/* Zone 1 — the answer */}
       <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
-        <NetWorthHero netPaisa={breakdown.netPaisa} series={series} />
-        <BalanceSheet breakdown={breakdown} loans={loans} />
+        <NetWorthHero notation={notation} netPaisa={breakdown.netPaisa} series={series} />
+        <BalanceSheet notation={notation} breakdown={breakdown} loans={loans} />
       </div>
 
       {/* Zone 2 — what needs you */}
@@ -100,8 +110,9 @@ export default async function DashboardPage() {
           valuePaisa={breakdown.psxPaisa}
           costPaisa={invested.psxPaisa}
         />
-        <FundsPanel positions={positions} meta={fundMeta} valuePaisa={breakdown.fundsPaisa} />
+        <FundsPanel notation={notation} positions={positions} meta={fundMeta} valuePaisa={breakdown.fundsPaisa} />
         <CashFlowPanel
+          notation={notation}
           months={months}
           incomePaisa={flow.incomePaisa}
           expensesPaisa={flow.expensesPaisa}
@@ -109,7 +120,7 @@ export default async function DashboardPage() {
         />
         <ExpensesPanel categories={flow.categories} expensesPaisa={flow.expensesPaisa} />
         <TransactionsPanel txns={txns} />
-        <GoalsPanel goals={goals} />
+        <GoalsPanel notation={notation} goals={goals} />
       </div>
     </div>
   );

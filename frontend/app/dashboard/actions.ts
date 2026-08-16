@@ -140,6 +140,86 @@ export async function updatePreferences(_prev: FormState, form: FormData): Promi
   }
 }
 
+/**
+ * Change the address the account signs in with.
+ *
+ * Supabase sends a confirmation to BOTH addresses when "Secure email change" is
+ * on, and the change only lands once they are followed. Nothing here updates the
+ * email directly — this only starts the flow, which is why the UI says "pending"
+ * rather than "changed".
+ *
+ * The password is re-checked first. An email address is the account's recovery
+ * route: whoever controls it can reset the password and take everything.
+ */
+export async function requestEmailChange(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const { supabase } = await withUser();
+    const next = str(form, "email").toLowerCase();
+    const password = str(form, "password");
+
+    if (!next || !next.includes("@")) return { error: "Enter a valid email address." };
+    if (!password) return { error: "Enter your password to confirm." };
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.email) return { error: "Not signed in." };
+    if (next === user.email.toLowerCase()) {
+      return { error: "That is already your email address." };
+    }
+
+    const { error: wrong } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password,
+    });
+    if (wrong) return { error: "That password isn't right." };
+
+    const { error } = await supabase.auth.updateUser(
+      { email: next },
+      { emailRedirectTo: `${await siteOrigin()}/auth/confirm?next=/dashboard/settings` },
+    );
+    if (error) return { error: error.message };
+
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Sign one other device out. */
+export async function revokeSession(sessionId: string): Promise<FormState> {
+  try {
+    await withUser();
+    // Derives the owner itself; see the note in lib/queries-sessions.ts.
+    const { revokeSession: revoke } = await import("@/lib/queries-sessions");
+
+    const removed = await revoke(sessionId);
+    if (!removed) return { error: "That session has already ended." };
+
+    revalidatePath("/dashboard/settings");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/**
+ * Where confirmation links should come back to.
+ *
+ * Behind a proxy the request host is the only thing that knows the public
+ * origin, so it wins; NEXT_PUBLIC_SITE_URL is the fallback for contexts with no
+ * request, and localhost is the last resort for development.
+ */
+async function siteOrigin(): Promise<string> {
+  const { headers } = await import("next/headers");
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https");
+
+  if (host) return `${proto}://${host}`;
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+}
+
 const AVATAR_TYPES: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -241,6 +321,13 @@ export async function changePassword(_prev: FormState, form: FormData): Promise<
     } = await supabase.auth.getUser();
     if (!user?.email) return { error: "Not signed in." };
 
+    // An unlocked laptop is the realistic threat here, and the current-password
+    // check is what stands in the way — so it gets the same throttling as the
+    // login form rather than unlimited guesses from inside a live session.
+    const { guard } = await import("@/lib/rate-limit");
+    const limited = await guard("passwordChange", user.email);
+    if (!limited.ok) return { error: limited.message };
+
     const { error: wrong } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: current,
@@ -250,6 +337,64 @@ export async function changePassword(_prev: FormState, form: FormData): Promise<
     const { error } = await supabase.auth.updateUser({ password: next });
     if (error) return { error: error.message };
 
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/**
+ * Delete the account and everything in it. There is no undo.
+ *
+ * Two gates, both required. The typed email proves the user knows which account
+ * they are on — the mistake this prevents is deleting the wrong one on a shared
+ * machine. The password proves it is actually them, which matters because an
+ * unlocked laptop is the realistic threat and a session cookie alone is not
+ * proof of anything.
+ *
+ * Order matters. Storage objects go first, because `storage.objects.owner` does
+ * not cascade — deleting the auth user would orphan the avatar files with no
+ * owner left to attribute them to. Every `public` table DOES cascade from
+ * `auth.users` (migration 0003), so removing the auth user takes the accounts,
+ * transactions, loans, goals, trades and orders with it in one statement.
+ */
+export async function deleteAccount(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const { supabase, userId } = await withUser();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.email) return { error: "Not signed in." };
+
+    const typed = str(form, "confirm_email").toLowerCase();
+    if (typed !== user.email.toLowerCase()) {
+      return { error: "That email doesn't match the account you're signed in to." };
+    }
+
+    const password = str(form, "password");
+    if (!password) return { error: "Enter your password to confirm." };
+
+    const { error: wrong } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password,
+    });
+    if (wrong) return { error: "That password isn't right." };
+
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+
+    const { data: files } = await admin.storage.from("avatars").list(userId);
+    if (files?.length) {
+      await admin.storage.from("avatars").remove(files.map((f) => `${userId}/${f.name}`));
+    }
+
+    const { error } = await admin.auth.admin.deleteUser(userId);
+    if (error) return { error: error.message };
+
+    // The session now points at a user that no longer exists; clear it rather
+    // than leaving a cookie that fails confusingly on the next request.
+    await supabase.auth.signOut();
     return { ok: true };
   } catch (e) {
     return fail(e);
@@ -748,6 +893,306 @@ export async function lookupFunds(query: string) {
   return searchFunds(query, userId);
 }
 
+/* ── Other assets ─────────────────────────────────────────────────────────── */
+
+export async function addAsset(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const { supabase, userId } = await withUser();
+    const name = str(form, "name");
+    if (!name) return { error: "Give it a name." };
+
+    const { error } = await supabase.from("assets").insert({
+      user_id: userId,
+      kind: str(form, "kind") || "OTHER",
+      name,
+      quantity: str(form, "quantity") ? String(num(form, "quantity")) : null,
+      unit: str(form, "unit") || null,
+      cost_paisa: str(form, "cost") ? toPaisa(num(form, "cost")) : null,
+      value_paisa: toPaisa(num(form, "value") || 0),
+      as_of: str(form, "as_of") || new Date().toISOString().slice(0, 10),
+      zakatable: form.get("zakatable") === "1",
+      note: str(form, "note") || null,
+    });
+    if (error) return { error: error.message };
+
+    revalidatePath("/dashboard/assets");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function updateAsset(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const name = str(form, "name");
+    if (!name) return { error: "Give it a name." };
+
+    return await applyUpdate(
+      "assets",
+      str(form, "id"),
+      {
+        kind: str(form, "kind") || "OTHER",
+        name,
+        quantity: str(form, "quantity") ? String(num(form, "quantity")) : null,
+        unit: str(form, "unit") || null,
+        cost_paisa: str(form, "cost") ? toPaisa(num(form, "cost")) : null,
+        value_paisa: toPaisa(num(form, "value") || 0),
+        as_of: str(form, "as_of") || undefined,
+        zakatable: form.get("zakatable") === "1",
+        note: str(form, "note") || null,
+      },
+      ["/dashboard/assets"],
+    );
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/* ── Budgets ──────────────────────────────────────────────────────────────── */
+
+export async function addBudget(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const { supabase, userId } = await withUser();
+    const category = str(form, "category");
+    const limit = num(form, "limit");
+    if (!category) return { error: "Which category?" };
+    if (!limit || limit <= 0) return { error: "Enter a monthly limit." };
+
+    /**
+     * One budget per category — setting a limit twice adjusts it rather than
+     * creating a second, invisible ceiling.
+     *
+     * Resolved here rather than with `upsert`, because the unique index is on
+     * the EXPRESSION `(user_id, lower(category))` and PostgREST's `onConflict`
+     * only names plain columns: `ON CONFLICT (user_id, category)` matches no
+     * index and Postgres rejects the statement outright, which made it
+     * impossible to create a budget at all. Weakening the index instead would
+     * let "Groceries" and "groceries" become two ceilings on one category,
+     * while `budgetStatus` — which lowercases before matching spend — would
+     * only ever fill one of them. Same trade-off as `upsertFunds` in
+     * lib/market/sync-nav.ts, which keeps its expression index too.
+     *
+     * The read is RLS-scoped like every other user-facing query, so it can only
+     * ever see this user's rows; matching in JS avoids `ilike`, which would
+     * treat a category containing % or _ as a pattern.
+     */
+    const { data: mine, error: readError } = await supabase
+      .from("budgets")
+      .select("id,category")
+      .eq("user_id", userId);
+    if (readError) return { error: readError.message };
+
+    const key = category.trim().toLowerCase();
+    const existing = (mine ?? []).find((b) => String(b.category).trim().toLowerCase() === key);
+
+    const { error } = existing
+      ? await supabase
+          .from("budgets")
+          .update({ category, limit_paisa: toPaisa(limit), is_active: true })
+          .eq("id", existing.id)
+      : await supabase
+          .from("budgets")
+          .insert({ user_id: userId, category, limit_paisa: toPaisa(limit), is_active: true });
+
+    // 23505 is the unique index rejecting a duplicate that appeared between the
+    // read and the write — two submits racing. Say what happened rather than
+    // showing the raw constraint name.
+    if (error) {
+      return {
+        error:
+          error.code === "23505"
+            ? "You already have a budget for that category."
+            : error.message,
+      };
+    }
+
+    revalidatePath("/dashboard/transactions");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function updateBudget(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const limit = num(form, "limit");
+    if (!limit || limit <= 0) return { error: "Enter a monthly limit." };
+
+    return await applyUpdate(
+      "budgets",
+      str(form, "id"),
+      { category: str(form, "category"), limit_paisa: toPaisa(limit) },
+      ["/dashboard/transactions"],
+    );
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/* ── Recurring transactions ───────────────────────────────────────────────── */
+
+function recurringFields(form: FormData) {
+  const amount = Math.abs(num(form, "amount"));
+  const signed = str(form, "direction") === "in" ? amount : -amount;
+
+  return {
+    account_id: str(form, "account_id") || null,
+    label: str(form, "label"),
+    category: str(form, "category") || null,
+    amount_paisa: toPaisa(signed),
+    cadence: str(form, "cadence") || "MONTHLY",
+    day_of_period: num(form, "day_of_period") || 1,
+    start_date: str(form, "start_date") || new Date().toISOString().slice(0, 10),
+    end_date: str(form, "end_date") || null,
+  };
+}
+
+export async function addRecurring(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const { supabase, userId } = await withUser();
+    const fields = recurringFields(form);
+    if (!fields.label) return { error: "What is it for?" };
+    if (!fields.amount_paisa) return { error: "Enter an amount." };
+
+    const { error } = await supabase
+      .from("recurring_transactions")
+      .insert({ user_id: userId, ...fields });
+    if (error) return { error: error.message };
+
+    revalidatePath("/dashboard/transactions");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function updateRecurring(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const fields = recurringFields(form);
+    if (!fields.label) return { error: "What is it for?" };
+    if (!fields.amount_paisa) return { error: "Enter an amount." };
+
+    return await applyUpdate(
+      "recurring_transactions",
+      str(form, "id"),
+      { ...fields, is_active: form.get("is_active") !== "0" },
+      ["/dashboard/transactions"],
+    );
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/* ── Committees ───────────────────────────────────────────────────────────── */
+
+function committeeFields(form: FormData) {
+  return {
+    name: str(form, "name"),
+    organiser: str(form, "organiser") || null,
+    members: num(form, "members"),
+    monthly_paisa: toPaisa(num(form, "monthly")),
+    start_month: str(form, "start_month") || new Date().toISOString().slice(0, 10),
+    payout_position: str(form, "payout_position") ? num(form, "payout_position") : null,
+    payout_received: form.get("payout_received") === "1",
+    payout_date: str(form, "payout_date") || null,
+  };
+}
+
+export async function addCommittee(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const { supabase, userId } = await withUser();
+    const fields = committeeFields(form);
+
+    if (!fields.name) return { error: "Give the committee a name." };
+    if (!fields.members || fields.members < 2) return { error: "A committee needs at least 2 members." };
+    if (!fields.monthly_paisa) return { error: "Enter the monthly contribution." };
+    if (fields.payout_position && fields.payout_position > fields.members) {
+      return { error: `Your turn cannot be after member ${fields.members}.` };
+    }
+
+    const { error } = await supabase.from("committees").insert({ user_id: userId, ...fields });
+    if (error) return { error: error.message };
+
+    revalidatePath("/dashboard/committees");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function updateCommittee(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const fields = committeeFields(form);
+    if (!fields.name) return { error: "Give the committee a name." };
+    if (fields.payout_position && fields.payout_position > fields.members) {
+      return { error: `Your turn cannot be after member ${fields.members}.` };
+    }
+
+    return await applyUpdate("committees", str(form, "id"), fields, ["/dashboard/committees"]);
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function addCommitteePayment(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const { supabase, userId } = await withUser();
+    const amount = num(form, "amount");
+    if (!amount) return { error: "Enter the amount paid." };
+
+    const { error } = await supabase.from("committee_payments").insert({
+      user_id: userId,
+      committee_id: str(form, "committee_id"),
+      amount_paisa: toPaisa(amount),
+      paid_at: str(form, "paid_at") || new Date().toISOString().slice(0, 10),
+      note: str(form, "note") || null,
+    });
+    if (error) return { error: error.message };
+
+    revalidatePath("/dashboard/committees");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/* ── Zakat ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Record an assessment.
+ *
+ * The nisab is stored as it was on the day, not recomputed later: it tracks the
+ * metal price, so re-deriving an old year against today's would give a different
+ * answer to the one the user acted on.
+ */
+export async function saveZakatAssessment(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const { supabase, userId } = await withUser();
+
+    const { error } = await supabase.from("zakat_assessments").insert({
+      user_id: userId,
+      assessed_on: str(form, "assessed_on") || new Date().toISOString().slice(0, 10),
+      nisab_paisa: num(form, "nisab_paisa") || 0,
+      assets_paisa: num(form, "assets_paisa") || 0,
+      deductions_paisa: num(form, "deductions_paisa") || 0,
+      zakatable_paisa: num(form, "zakatable_paisa") || 0,
+      due_paisa: num(form, "due_paisa") || 0,
+      paid_paisa: str(form, "paid") ? toPaisa(num(form, "paid")) : 0,
+      note: str(form, "note") || null,
+    });
+    if (error) return { error: error.message };
+
+    revalidatePath("/dashboard/zakat");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 /* ── Deletes ──────────────────────────────────────────────────────────────── */
 
 /**
@@ -769,6 +1214,12 @@ export async function deleteRow(table: string, id: string): Promise<FormState> {
     "goal_contributions",
     "stock_transactions",
     "fund_transactions",
+    "assets",
+    "budgets",
+    "recurring_transactions",
+    "committees",
+    "committee_payments",
+    "zakat_assessments",
   ]);
   // Never interpolate a caller-supplied table name without an allowlist.
   if (!allowed.has(table)) return { error: "Unknown table." };

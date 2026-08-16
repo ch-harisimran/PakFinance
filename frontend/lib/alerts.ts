@@ -48,11 +48,20 @@ export interface AlertInput {
   counts?: { accounts: number; trades: number; funds: number; goals: number };
 }
 
-/** Days until the next occurrence of a day-of-month. */
+/**
+ * Days until the next occurrence of a day-of-month.
+ *
+ * Compared date to date, never timestamp to timestamp. The earlier version built
+ * the due date at midnight and compared it against `now`, so from 00:01 on the
+ * due day itself `next < now` was true and the date rolled forward a month —
+ * putting the alert ~30 days out, past the two-week window, and removing it from
+ * the bell on the one day it mattered most. Caught by the test below.
+ */
 export function daysUntil(dueDay: number, now = new Date()): number {
-  const next = new Date(now.getFullYear(), now.getMonth(), dueDay);
-  if (next < now) next.setMonth(next.getMonth() + 1);
-  return Math.max(0, Math.ceil((next.getTime() - now.getTime()) / 864e5));
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const next = new Date(today.getFullYear(), today.getMonth(), dueDay);
+  if (next < today) next.setMonth(next.getMonth() + 1);
+  return Math.round((next.getTime() - today.getTime()) / 864e5);
 }
 
 /** Days until a fixed date. Negative once it is in the past. */

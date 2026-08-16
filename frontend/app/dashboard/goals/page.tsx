@@ -3,6 +3,8 @@ import { PageHeader, StatRow } from "@/components/dashboard/PageHeader";
 import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { RowActions } from "@/components/dashboard/RowActions";
+import { NoMatches } from "@/components/dashboard/SearchBox";
+import { filterBy, readQuery } from "@/lib/search";
 import {
   AddGoal,
   AddContribution,
@@ -10,8 +12,11 @@ import {
   ContributionFields,
 } from "@/components/forms/EntryForms";
 import { updateGoal, updateContribution } from "@/app/dashboard/actions";
-import { getGoals, goalProgress } from "@/lib/queries";
+import { getGoals, goalProgress, getNotation } from "@/lib/queries";
 import { paisaCompact, paisaFull } from "@/lib/money";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Goals" };
 
 /**
  * Goals.
@@ -24,9 +29,17 @@ import { paisaCompact, paisaFull } from "@/lib/money";
 const R = 52;
 const C = 2 * Math.PI * R;
 
-export default async function GoalsPage() {
+export default async function GoalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const goals = await getGoals();
   const rows = goals.map((g) => ({ ...g, ...goalProgress(g) }));
+
+  const q = readQuery((await searchParams).q);
+  const notation = await getNotation();
+  const shown = filterBy(rows, q, (g) => [g.name, g.category]);
 
   const saved = rows.reduce((s, g) => s + g.savedPaisa, 0);
   const target = rows.reduce((s, g) => s + g.target_paisa, 0);
@@ -64,8 +77,10 @@ export default async function GoalsPage() {
             ]}
           />
 
+          {q && shown.length === 0 && <NoMatches query={q} noun="goals" />}
+
           <div className="mb-5 grid gap-5 lg:grid-cols-3">
-            {rows.map((g) => {
+            {shown.map((g) => {
               const tone = g.onTrack ? "var(--color-brass)" : "var(--color-warning)";
               return (
                 <section key={g.id} className="card relative flex flex-col items-center p-6 text-center">
@@ -116,7 +131,7 @@ export default async function GoalsPage() {
 
                   <h3 className="mt-5 text-[15px] font-semibold tracking-[-0.01em]">{g.name}</h3>
                   <p className="mt-1.5 text-[12.5px]" style={{ color: "var(--text-muted)" }} data-numeric>
-                    {paisaCompact(g.savedPaisa)} of {paisaCompact(g.target_paisa)}
+                    {paisaCompact(g.savedPaisa, notation)} of {paisaCompact(g.target_paisa, notation)}
                   </p>
 
                   <div className="mt-5 w-full border-t pt-4" style={{ borderColor: "var(--border-subtle)" }}>

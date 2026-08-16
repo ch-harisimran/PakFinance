@@ -6,6 +6,9 @@ import { Breakdown } from "@/components/dashboard/Breakdown";
 import { TypeBadge } from "@/components/dashboard/TypeBadge";
 import { AddTrade, TradeFields } from "@/components/forms/TradeForm";
 import { RowActions } from "@/components/dashboard/RowActions";
+import { NoMatches } from "@/components/dashboard/SearchBox";
+import { filterBy, readQuery } from "@/lib/search";
+import { getNotation } from "@/lib/queries";
 import { updateTrade } from "@/app/dashboard/actions";
 import { PortfolioChart } from "@/components/dashboard/PortfolioChart";
 import {
@@ -14,10 +17,14 @@ import {
   getDailyBars,
   getSecurityMeta,
   getPriceAsOf,
+  getCorporateActions,
 } from "@/lib/queries-psx";
 import { buildHoldings, valueHoldings, portfolioSeries } from "@/lib/market/holdings";
 import { CHART } from "@/lib/chart";
 import { paisaFull, formatPct, paisaCompact } from "@/lib/money";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "PSX Portfolio" };
 
 /**
  * PSX Portfolio — real holdings against real prices.
@@ -29,8 +36,14 @@ import { paisaFull, formatPct, paisaCompact } from "@/lib/money";
  * daily closes, so a position bought in 2023 is valued at 2023 prices — not at
  * today's.
  */
-export default async function PsxPage() {
+export default async function PsxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const trades = await getTrades();
+  const q = readQuery((await searchParams).q);
+  const notation = await getNotation();
 
   if (!trades.length) {
     return (
@@ -50,8 +63,15 @@ export default async function PsxPage() {
     );
   }
 
-  const symbols = [...new Set(trades.map((t) => t.symbol))];
+  const traded = [...new Set(trades.map((t) => t.symbol))];
   const firstTrade = trades.reduce((min, t) => (t.tradedAt < min ? t.tradedAt : min), trades[0].tradedAt);
+
+  // Fetched first, and alone: a symbol change means the ticker a position ends
+  // up under is not one the user ever traded, so prices have to be looked up for
+  // both the traded symbols and whatever the actions rename them to.
+  const actions = await getCorporateActions(traded);
+  const positions = buildHoldings(trades, actions);
+  const symbols = [...new Set([...traded, ...positions.map((h) => h.symbol)])];
 
   const [quotes, bars, meta, asOf] = await Promise.all([
     getQuotes(symbols),
@@ -60,27 +80,39 @@ export default async function PsxPage() {
     getPriceAsOf(),
   ]);
 
-  const holdings = valueHoldings(buildHoldings(trades), quotes);
-  const series = portfolioSeries(trades, bars);
+  const holdings = valueHoldings(positions, quotes);
+  const series = portfolioSeries(trades, bars, actions);
 
   const marketValue = holdings.reduce((s, h) => s + h.valuePaisa, 0);
   const invested = holdings.reduce((s, h) => s + h.costPaisa, 0);
   const unrealised = marketValue - invested;
-  const realised = buildHoldings(trades).reduce((s, h) => s + h.realisedPaisa, 0);
-  const dividends = buildHoldings(trades).reduce((s, h) => s + h.dividendPaisa, 0);
+  // From `positions`, which is already built — rebuilding twice more was both
+  // wasteful and, now that actions exist, a second answer to the same question.
+  const realised = positions.reduce((s, h) => s + h.realisedPaisa, 0);
+  const dividends = positions.reduce((s, h) => s + h.dividendPaisa, 0);
 
   const bySector = [...holdings.reduce((m, h) => {
-    const key = meta.get(h.symbol)?.sector ?? "Unclassified";
+    const key = meta.get(h.symbol)?.sectorName ?? "Unclassified";
     m.set(key, (m.get(key) ?? 0) + h.valuePaisa);
     return m;
   }, new Map<string, number>())]
     .map(([key, value], i) => ({
-      key: `Sector ${key}`,
+      key,
       value: value / 100,
       pct: marketValue ? (value / marketValue) * 100 : 0,
       color: CHART[i % CHART.length],
     }))
     .sort((a, b) => b.value - a.value);
+
+  // Filtering affects the tables only. The stat row and the sector split above
+  // describe the whole portfolio, and a search must not appear to shrink it.
+  const shownHoldings = filterBy(holdings, q, (h) => [
+    h.symbol,
+    meta.get(h.symbol)?.name,
+    meta.get(h.symbol)?.sectorName,
+    ...(meta.get(h.symbol)?.indices ?? []),
+  ]);
+  const shownTrades = filterBy(trades, q, (t) => [t.symbol, t.type]);
 
   const freshness = asOf
     ? {
@@ -118,12 +150,20 @@ export default async function PsxPage() {
 
       {series.length > 1 && (
         <div className="mb-5">
-          <PortfolioChart series={series} />
+          <PortfolioChart series={series} notation={notation} />
         </div>
       )}
 
       <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Panel title="Holdings" subtitle={`${holdings.length} scrips`} bodyClassName="p-0">
+        <Panel
+          title="Holdings"
+          subtitle={
+            shownHoldings.length === holdings.length
+              ? `${holdings.length} scrips`
+              : `${shownHoldings.length} of ${holdings.length} scrips`
+          }
+          bodyClassName="p-0"
+        >
           <div
             className="grid grid-cols-[1.3fr_repeat(4,minmax(0,1fr))] gap-3 px-5 py-2.5 text-[9.5px] uppercase tracking-[0.14em]"
             style={{ fontFamily: "var(--font-mono)", color: "var(--text-faint)" }}
@@ -135,7 +175,9 @@ export default async function PsxPage() {
             <span className="text-right">Return</span>
           </div>
 
-          {holdings.map((h) => (
+          {q && shownHoldings.length === 0 && <NoMatches query={q} noun="scrips" />}
+
+          {shownHoldings.map((h) => (
             <div
               key={h.symbol}
               className="grid grid-cols-[1.3fr_repeat(4,minmax(0,1fr))] items-center gap-3 border-t px-5 py-3.5 transition-colors duration-200 hover:bg-[var(--surface-1)]"
@@ -190,7 +232,7 @@ export default async function PsxPage() {
 
         <Panel title="By sector" subtitle="Concentration across the portfolio">
           {bySector.length ? (
-            <Breakdown items={bySector} />
+            <Breakdown items={bySector} notation={notation} />
           ) : (
             <p className="py-6 text-center text-[13px]" style={{ color: "var(--text-faint)" }}>
               No sector data.
@@ -200,7 +242,7 @@ export default async function PsxPage() {
       </div>
 
       <Panel title="Transactions" subtitle="Your trades, dividends and corporate actions" bodyClassName="p-0">
-        {trades.slice(0, 20).map((t) => (
+        {shownTrades.slice(0, 20).map((t) => (
           <div
             key={t.id}
             className="flex items-center justify-between gap-4 border-b px-5 py-3.5 last:border-b-0"

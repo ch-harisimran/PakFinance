@@ -1,0 +1,58 @@
+name: Maintenance
+
+# Prune what has aged out, then check whether the other jobs are actually
+# running. 04:30 UTC = 09:30 PKT, after the overnight jobs have had their turn.
+#
+# The watchdog is the reason this exists. Every other workflow reports its own
+# failure to the Actions log, which nobody reads on a good day. This one notices
+# the failure that leaves no log at all: a schedule that stopped firing. GitHub
+# disables cron on repositories with 60 days of inactivity, and a personal
+# project hits that easily.
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report only — delete nothing, send nothing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        # Not --ignore-scripts: esbuild (via tsx) needs its postinstall to place
+        # the platform binary, and the job cannot run without it.
+        run: npm ci
+
+      - name: Prune and check job health
+        working-directory: frontend
+        env:
+          # Session pooler (port 5432). The direct db.*.supabase.co host is
+          # IPv6-only and unreachable from GitHub runners.
+          DATABASE_POOL_URL: ${{ secrets.DATABASE_POOL_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_SENDER: ${{ secrets.BREVO_SENDER }}
+          BREVO_SENDER_NAME: PakFinance
+          # Where the watchdog's alerts go. Without it the job still fails
+          # loudly in the log, it just cannot email anyone.
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: npx tsx scripts/maintenance.ts ${{ inputs.dry_run && '--dry-run' || '' }}

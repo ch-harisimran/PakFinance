@@ -6,11 +6,17 @@ import { Breakdown } from "@/components/dashboard/Breakdown";
 import { TypeBadge } from "@/components/dashboard/TypeBadge";
 import { AddFundOrder, FundOrderFields } from "@/components/forms/FundOrderForm";
 import { RowActions } from "@/components/dashboard/RowActions";
+import { NoMatches } from "@/components/dashboard/SearchBox";
 import { updateFundOrder } from "@/app/dashboard/actions";
+import { filterBy, readQuery } from "@/lib/search";
+import { getNotation } from "@/lib/queries";
 import { getFundOrders, getFundMeta, getOfficialNavs } from "@/lib/queries-funds";
 import { buildFundPositions, valueFunds } from "@/lib/market/fund-holdings";
 import { CHART } from "@/lib/chart";
 import { paisaFull, paisaCompact, formatPct, formatFull } from "@/lib/money";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Mutual Funds" };
 
 /**
  * Mutual Funds.
@@ -21,8 +27,14 @@ import { paisaFull, paisaCompact, formatPct, formatFull } from "@/lib/money";
  * The chip says which, because implying a live feed we do not have would be a
  * claim the product cannot keep.
  */
-export default async function FundsPage() {
+export default async function FundsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const orders = await getFundOrders();
+  const q = readQuery((await searchParams).q);
+  const notation = await getNotation();
 
   if (!orders.length) {
     return (
@@ -51,6 +63,13 @@ export default async function FundsPage() {
   const invested = positions.reduce((s, p) => s + p.costPaisa, 0);
   const gain = totalValue - invested;
   const realised = buildFundPositions(orders).reduce((s, p) => s + p.realisedPaisa, 0);
+
+  // Tables filter; the totals above them describe everything held.
+  const shownPositions = filterBy(positions, q, (p) => {
+    const m = meta.get(p.fundId);
+    return [m?.name, m?.amc, m?.category, m?.isIslamic ? "islamic shariah" : "conventional"];
+  });
+  const shownOrders = filterBy(orders, q, (o) => [meta.get(o.fundId)?.name, o.type]);
 
   const islamicValue = positions
     .filter((p) => meta.get(p.fundId)?.isIslamic)
@@ -122,7 +141,15 @@ export default async function FundsPage() {
       )}
 
       <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Panel title="Your funds" subtitle={`${positions.length} held`} bodyClassName="p-0">
+        <Panel
+          title="Your funds"
+          subtitle={
+            shownPositions.length === positions.length
+              ? `${positions.length} held`
+              : `${shownPositions.length} of ${positions.length} held`
+          }
+          bodyClassName="p-0"
+        >
           <div
             className="grid grid-cols-[2fr_repeat(3,minmax(0,1fr))] gap-3 px-5 py-2.5 text-[9.5px] uppercase tracking-[0.14em]"
             style={{ fontFamily: "var(--font-mono)", color: "var(--text-faint)" }}
@@ -133,7 +160,9 @@ export default async function FundsPage() {
             <span className="text-right">Value</span>
           </div>
 
-          {positions.map((p) => {
+          {q && shownPositions.length === 0 && <NoMatches query={q} noun="funds" />}
+
+          {shownPositions.map((p) => {
             const m = meta.get(p.fundId);
             return (
               <div
@@ -190,7 +219,7 @@ export default async function FundsPage() {
 
         <Panel title="By category" subtitle="Risk spread across your funds">
           {byCategory.length ? (
-            <Breakdown items={byCategory} />
+            <Breakdown items={byCategory} notation={notation} />
           ) : (
             <p className="py-6 text-center text-[13px]" style={{ color: "var(--text-faint)" }}>
               No category data.
@@ -200,7 +229,7 @@ export default async function FundsPage() {
       </div>
 
       <Panel title="Orders" subtitle="Purchases, redemptions and reinvested dividends" bodyClassName="p-0">
-        {orders.slice(0, 20).map((o) => {
+        {shownOrders.slice(0, 20).map((o) => {
           const m = meta.get(o.fundId);
           return (
             <div

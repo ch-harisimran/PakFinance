@@ -2,6 +2,7 @@ import { and, desc, eq, sql as raw } from "drizzle-orm";
 // Unguarded client: this module is shared with the standalone scheduled job,
 // which runs under plain Node where `server-only` throws.
 import { db } from "@/lib/db/client";
+import { runTrigger } from "@/lib/market/run-context";
 import { priceLatest, prices, pricesDaily, securities, syncRuns } from "@/lib/db/schema/market";
 import { psxProvider } from "@/lib/market/psx";
 import { getMarketState } from "@/lib/market/sessions";
@@ -51,6 +52,7 @@ export async function runPsxSync({ force = false } = {}): Promise<SyncResult> {
     await db.insert(syncRuns).values({
       job: "sync-psx",
       status: "skipped",
+      trigger: runTrigger(),
       reason: state.reason,
       finishedAt: new Date(),
     });
@@ -74,6 +76,7 @@ export async function runPsxSync({ force = false } = {}): Promise<SyncResult> {
         await db.insert(syncRuns).values({
           job: "sync-psx",
           status: "skipped",
+          trigger: runTrigger(),
           reason: "too-soon",
           finishedAt: new Date(),
         });
@@ -89,7 +92,7 @@ export async function runPsxSync({ force = false } = {}): Promise<SyncResult> {
 
   const [run] = await db
     .insert(syncRuns)
-    .values({ job: "sync-psx", status: "running" })
+    .values({ job: "sync-psx", status: "running", trigger: runTrigger() })
     .returning({ id: syncRuns.id });
 
   try {
@@ -106,7 +109,10 @@ export async function runPsxSync({ force = false } = {}): Promise<SyncResult> {
           name: q.symbol,
           kind: q.kind,
           sector: q.sectorCode,
+          // Both written for now: `indices` is what the app reads, `board` is
+          // kept until the next release so a rollback loses nothing.
           board: q.indices.join(",") || null,
+          indices: q.indices.length ? q.indices : null,
           lastSeenAt: asOf,
         })),
       )
@@ -116,6 +122,7 @@ export async function runPsxSync({ force = false } = {}): Promise<SyncResult> {
           kind: raw`excluded.kind`,
           sector: raw`excluded.sector`,
           board: raw`excluded.board`,
+          indices: raw`excluded.indices`,
           isActive: true,
           lastSeenAt: asOf,
         },

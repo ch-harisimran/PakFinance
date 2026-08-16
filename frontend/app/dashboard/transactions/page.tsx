@@ -4,10 +4,18 @@ import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TransactionList, ExpenseBars } from "@/components/dashboard/TransactionList";
 import { RowActions } from "@/components/dashboard/RowActions";
+import { NoMatches } from "@/components/dashboard/SearchBox";
+import { BudgetPanel, RecurringPanel } from "@/components/dashboard/BudgetPanel";
+import { getBudgets, getRecurring, budgetStatus } from "@/lib/queries-wealth";
+import { karachiNow } from "@/lib/market/sessions";
+import { filterBy, readQuery } from "@/lib/search";
 import { LogTransaction, TransactionFields } from "@/components/forms/EntryForms";
 import { updateTransaction } from "@/app/dashboard/actions";
 import { getAccounts, getTransactions, cashFlow } from "@/lib/queries";
 import { paisaFull } from "@/lib/money";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Transactions" };
 
 /**
  * Transactions — money in and out.
@@ -16,9 +24,22 @@ import { paisaFull } from "@/lib/money";
  * out of here preserves the distinction the sidebar makes between Money and
  * Investments.
  */
-export default async function TransactionsPage() {
+export default async function TransactionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const [txns, accounts] = await Promise.all([getTransactions(60), getAccounts()]);
+
+  // Flow totals stay on the full month — filtering the list should not quietly
+  // rewrite what you earned and spent.
   const flow = cashFlow(txns);
+
+  const q = readQuery((await searchParams).q);
+  const shown = filterBy(txns, q, (t) => [t.label, t.category]);
+
+  const [budgets, recurring] = await Promise.all([getBudgets(), getRecurring()]);
+  const budgetRows = budgetStatus(budgets, flow.categories);
 
   const month = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
@@ -55,9 +76,10 @@ export default async function TransactionsPage() {
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <Panel title={month} bodyClassName="p-0">
+              {q && shown.length === 0 && <NoMatches query={q} noun="transactions" />}
               <TransactionList
                 withIcon
-                items={txns.map((t) => ({
+                items={shown.map((t) => ({
                   id: t.id,
                   label: t.label,
                   meta: `${t.category ?? "Uncategorised"} · ${new Date(t.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
@@ -95,6 +117,15 @@ export default async function TransactionsPage() {
           </div>
         </>
       )}
+
+      {/* Budgets and repeating entries live here rather than in the sidebar: a
+          budget is a line drawn on this ledger, and a repeating entry is a row
+          of it you have not had to type. Shown even when there are no
+          transactions yet, since setting them up first is entirely reasonable. */}
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <BudgetPanel budgets={budgetRows} />
+        <RecurringPanel rules={recurring} accounts={accounts} today={karachiNow().date} />
+      </div>
     </div>
   );
 }

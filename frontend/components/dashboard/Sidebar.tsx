@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/Logo";
+import { displayName, initialsOf, type Profile } from "@/lib/profile";
 import {
   LayoutDashboard,
   LineChart,
@@ -15,6 +17,9 @@ import {
   Settings,
   ChevronsLeft,
   ChevronsRight,
+  Users,
+  HandCoins,
+  Gem,
 } from "lucide-react";
 
 /**
@@ -28,6 +33,7 @@ const GROUPS = [
     items: [
       { label: "PSX Portfolio", href: "/dashboard/psx", Icon: LineChart },
       { label: "Mutual Funds", href: "/dashboard/funds", Icon: PiggyBank },
+      { label: "Other Assets", href: "/dashboard/assets", Icon: Gem },
     ],
   },
   {
@@ -41,7 +47,9 @@ const GROUPS = [
     label: "Planning",
     items: [
       { label: "Loans", href: "/dashboard/loans", Icon: Receipt },
+      { label: "Committees", href: "/dashboard/committees", Icon: Users },
       { label: "Goals", href: "/dashboard/goals", Icon: Target },
+      { label: "Zakat", href: "/dashboard/zakat", Icon: HandCoins },
     ],
   },
   {
@@ -50,9 +58,12 @@ const GROUPS = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ profile }: { profile: Profile | null }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+
+  const name = profile ? displayName(profile) : "Your account";
+  const initials = profile ? initialsOf(profile) : "?";
 
   return (
     <aside
@@ -128,28 +139,55 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t p-3" style={{ borderColor: "var(--border-subtle)" }}>
-        <button
-          onClick={() => collapsed && setCollapsed(false)}
-          className={`flex w-full items-center gap-3 rounded-[10px] p-2 text-left transition-colors duration-200 hover:bg-[var(--surface-2)] ${
-            collapsed ? "justify-center" : ""
-          }`}
-        >
-          <span
-            className="grid h-8 w-8 flex-none place-items-center rounded-full text-[12px] font-semibold"
-            style={{ backgroundColor: "var(--surface-3)" }}
+        {/* Collapsed, this expands the rail; expanded, it goes to Settings.
+            Previously it was a button that did nothing at all once open. */}
+        {collapsed ? (
+          <button
+            onClick={() => setCollapsed(false)}
+            title={name}
+            aria-label={`${name} — expand sidebar`}
+            className="flex w-full items-center justify-center rounded-[10px] p-2 transition-colors duration-200 hover:bg-[var(--surface-2)]"
           >
-            HK
-          </span>
-          {!collapsed && (
+            <Avatar profile={profile} initials={initials} />
+          </button>
+        ) : (
+          <Link
+            href="/dashboard/settings"
+            className="flex w-full items-center gap-3 rounded-[10px] p-2 text-left transition-colors duration-200 hover:bg-[var(--surface-2)]"
+          >
+            <Avatar profile={profile} initials={initials} />
             <span className="min-w-0">
-              <span className="block truncate text-[13px] font-medium">Haris Khan</span>
+              <span className="block truncate text-[13px] font-medium">{name}</span>
               <span className="block truncate text-[11px]" style={{ color: "var(--text-faint)" }}>
-                haris@example.com
+                {profile?.email ?? "Not signed in"}
               </span>
             </span>
-          )}
-        </button>
+          </Link>
+        )}
       </div>
     </aside>
+  );
+}
+
+function Avatar({ profile, initials }: { profile: Profile | null; initials: string }) {
+  if (profile?.avatarUrl) {
+    return (
+      <Image
+        src={profile.avatarUrl}
+        alt=""
+        width={32}
+        height={32}
+        className="h-8 w-8 flex-none rounded-full object-cover"
+        unoptimized
+      />
+    );
+  }
+  return (
+    <span
+      className="grid h-8 w-8 flex-none place-items-center rounded-full text-[12px] font-semibold"
+      style={{ backgroundColor: "var(--surface-3)" }}
+    >
+      {initials}
+    </span>
   );
 }

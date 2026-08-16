@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PIN_LENGTH } from "@/lib/pin/crypto";
 
 /**
  * Six-digit PIN entry.
@@ -10,7 +11,10 @@ import { useEffect, useRef, useState } from "react";
  * belongs at signup, not at the lock screen.
  */
 export function PinPad({
-  length = 6,
+  // From the crypto module rather than repeated here: the wrap/unwrap code
+  // validates against the same constant, and two 6s that could drift apart is
+  // how a PIN screen ends up accepting a length the store will reject.
+  length = PIN_LENGTH,
   onComplete,
   disabled,
   error,

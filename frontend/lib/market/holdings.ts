@@ -21,6 +21,24 @@ export interface Trade {
   tradedAt: string; // YYYY-MM-DD
 }
 
+/**
+ * A corporate action that changes a position without the user trading.
+ *
+ * Only the three kinds nobody can record as a trade. BONUS, RIGHT and DIVIDEND
+ * are deliberately absent: the user enters those from their broker note, and
+ * applying them here as well would double the shares.
+ */
+export interface CorporateAction {
+  symbol: string;
+  kind: "SPLIT" | "SYMBOL_CHANGE" | "MERGER";
+  exDate: string; // YYYY-MM-DD
+  /** SPLIT and MERGER: each old share becomes `ratioTo / ratioFrom` new ones. */
+  ratioFrom?: number | null;
+  ratioTo?: number | null;
+  /** SYMBOL_CHANGE and MERGER: where the position moves to. */
+  newSymbol?: string | null;
+}
+
 export interface Holding {
   symbol: string;
   qty: number;
@@ -38,8 +56,7 @@ export interface Holding {
  * average cost per share falls. Treating bonus shares as a purchase at the
  * market price would invent a cost that was never paid and understate the gain.
  */
-export function buildHoldings(trades: Trade[]): Holding[] {
-  const byDate = [...trades].sort((a, b) => a.tradedAt.localeCompare(b.tradedAt));
+export function buildHoldings(trades: Trade[], actions: CorporateAction[] = []): Holding[] {
   const map = new Map<string, Holding>();
 
   const get = (symbol: string): Holding => {
@@ -51,7 +68,30 @@ export function buildHoldings(trades: Trade[]): Holding[] {
     return h;
   };
 
-  for (const t of byDate) {
+  /**
+   * Trades and corporate actions are merged into one timeline and replayed
+   * together, because the order between them changes the answer: shares bought
+   * after a split are already split-adjusted and must not be multiplied again.
+   *
+   * An action on the same date as a trade is applied AFTER it — the ex-date is
+   * the first day the shares trade adjusted, so anything bought that day is
+   * bought at the old terms.
+   */
+  const timeline: ({ at: string; rank: number } & (
+    | { event: "trade"; trade: Trade }
+    | { event: "action"; action: CorporateAction }
+  ))[] = [
+    ...trades.map((trade) => ({ at: trade.tradedAt, rank: 0, event: "trade" as const, trade })),
+    ...actions.map((action) => ({ at: action.exDate, rank: 1, event: "action" as const, action })),
+  ].sort((a, b) => a.at.localeCompare(b.at) || a.rank - b.rank);
+
+  for (const entry of timeline) {
+    if (entry.event === "action") {
+      applyAction(map, get, entry.action);
+      continue;
+    }
+
+    const t = entry.trade;
     const h = get(t.symbol);
 
     switch (t.type) {
@@ -85,6 +125,54 @@ export function buildHoldings(trades: Trade[]): Holding[] {
   }
 
   return [...map.values()];
+}
+
+/**
+ * Apply one corporate action to the positions held at that moment.
+ *
+ * A split changes how many pieces the same money is divided into; it does not
+ * change the money. So quantity scales and book cost does not, which is what
+ * makes the average cost fall by exactly the ratio. Realised gains and dividends
+ * already banked are historical fact and are carried across untouched.
+ */
+function applyAction(
+  map: Map<string, Holding>,
+  get: (symbol: string) => Holding,
+  action: CorporateAction,
+): void {
+  const existing = map.get(action.symbol);
+  // Nothing held in this symbol at the ex-date: the action is not ours.
+  if (!existing || (existing.qty <= 0 && existing.realisedPaisa === 0)) return;
+
+  const from = Number(action.ratioFrom ?? 1);
+  const to = Number(action.ratioTo ?? 1);
+  const factor = from > 0 && to > 0 ? to / from : 1;
+
+  if (action.kind === "SPLIT") {
+    existing.qty *= factor;
+    existing.avgCostPaisa = existing.qty > 0 ? existing.costPaisa / existing.qty : 0;
+    return;
+  }
+
+  // SYMBOL_CHANGE and MERGER both move the position to another ticker; a merger
+  // additionally exchanges shares at a ratio. Without `newSymbol` there is
+  // nowhere to move it, so the row is ignored rather than guessed at.
+  const destination = action.newSymbol;
+  if (!destination) return;
+
+  const target = get(destination);
+  const movedQty = existing.qty * (action.kind === "MERGER" ? factor : 1);
+
+  target.qty += movedQty;
+  target.costPaisa += existing.costPaisa;
+  target.realisedPaisa += existing.realisedPaisa;
+  target.dividendPaisa += existing.dividendPaisa;
+  target.avgCostPaisa = target.qty > 0 ? target.costPaisa / target.qty : 0;
+
+  // The old ticker no longer exists. Dropping the row entirely — rather than
+  // leaving a zeroed one — keeps it out of the holdings table and the sector
+  // split, where a dead symbol with no price would show as unclassified.
+  map.delete(action.symbol);
 }
 
 export interface Valued extends Holding {
@@ -131,11 +219,22 @@ export function valueHoldings(
 export function portfolioSeries(
   trades: Trade[],
   bars: Map<string, Map<string, number>>,
+  actions: CorporateAction[] = [],
 ): { date: string; valuePaisa: number }[] {
   if (!trades.length) return [];
 
   const byDate = [...trades].sort((a, b) => a.tradedAt.localeCompare(b.tradedAt));
   const start = byDate[0].tradedAt;
+
+  /**
+   * Actions matter here as much as they do to cost basis, for a different
+   * reason: PSX's historical closes are already split-adjusted, so replaying
+   * unadjusted quantities against them draws a cliff on the ex-date that never
+   * happened. Adjusting the quantity at the same moment keeps the curve smooth
+   * and true.
+   */
+  const byExDate = [...actions].sort((a, b) => a.exDate.localeCompare(b.exDate));
+  let actionCursor = 0;
 
   // Every date any held symbol has a bar for, from the first trade onward.
   const dates = new Set<string>();
@@ -159,6 +258,25 @@ export function portfolioSeries(
         qty.set(t.symbol, held + t.quantity);
       } else if (t.type === "SELL") {
         qty.set(t.symbol, Math.max(0, held - t.quantity));
+      }
+    }
+
+    // Then every action up to and including this date, after the day's trades
+    // for the same reason as in buildHoldings.
+    while (actionCursor < byExDate.length && byExDate[actionCursor].exDate <= date) {
+      const a = byExDate[actionCursor++];
+      const held = qty.get(a.symbol) ?? 0;
+      if (held <= 0) continue;
+
+      const from = Number(a.ratioFrom ?? 1);
+      const to = Number(a.ratioTo ?? 1);
+      const factor = from > 0 && to > 0 ? to / from : 1;
+
+      if (a.kind === "SPLIT") {
+        qty.set(a.symbol, held * factor);
+      } else if (a.newSymbol) {
+        qty.set(a.newSymbol, (qty.get(a.newSymbol) ?? 0) + held * (a.kind === "MERGER" ? factor : 1));
+        qty.set(a.symbol, 0);
       }
     }
 

@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { fundNavs, funds } from "@/lib/db/schema/market";
+import { fundNavs, funds, fundAliases } from "@/lib/db/schema/market";
 import { createClient } from "@/lib/supabase/server";
 import type { FundOrder } from "@/lib/market/fund-holdings";
 
@@ -135,12 +135,28 @@ export async function createFund(input: {
   return row.id;
 }
 
-/** Does the catalogue already hold something with this name? */
+/**
+ * Resolve a fund name to an id, aliases included.
+ *
+ * MUFAP publishes no stable fund code, so identity is the name. When an AMC
+ * renames a fund the new name would otherwise create a second row, leaving the
+ * user's units on the old one while fresh NAVs land on the new one — a position
+ * that quietly stops repricing. `market.fund_aliases` maps a previous name onto
+ * the fund it really is; `npm run merge:funds` records one.
+ */
 export async function findFundByName(name: string) {
   const [row] = await db
     .select({ id: funds.id })
     .from(funds)
     .where(sql`lower(${funds.name}) = lower(${name})`)
     .limit(1);
-  return row?.id ?? null;
+  if (row) return row.id;
+
+  const [alias] = await db
+    .select({ id: fundAliases.fundId })
+    .from(fundAliases)
+    .where(sql`lower(${fundAliases.alias}) = lower(${name})`)
+    .limit(1);
+
+  return alias?.id ?? null;
 }

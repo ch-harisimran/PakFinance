@@ -15,10 +15,23 @@
         "backfill": "tsx scripts/backfill-eod.ts",
         "sync:nav": "tsx scripts/sync-nav.ts",
         "snapshot": "tsx scripts/snapshot.ts",
-        "reminders": "tsx scripts/send-reminders.ts"
+        "reminders": "tsx scripts/send-reminders.ts",
+        "seed:sectors": "tsx scripts/seed-sectors.ts",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:rls": "tsx scripts/test-rls.ts",
+        "audit:security": "tsx scripts/audit-security.ts",
+        "schedule:report": "tsx scripts/schedule-report.ts",
+        "backup": "tsx scripts/backup.ts",
+        "verify:ratelimit": "tsx scripts/verify-rate-limit.ts",
+        "maintenance": "tsx scripts/maintenance.ts",
+        "seed:actions": "tsx scripts/seed-actions.ts",
+        "reconcile:psx": "tsx scripts/reconcile-psx.ts",
+        "merge:funds": "tsx scripts/merge-funds.ts"
     },
     "dependencies": {
         "@gsap/react": "^2.1.2",
+        "@react-pdf/renderer": "^4.6.1",
         "@supabase/ssr": "^0.12.4",
         "@supabase/supabase-js": "^2.112.3",
         "dotenv": "^17.4.2",
@@ -43,6 +56,7 @@
         "eslint-config-next": "16.3.1",
         "tailwindcss": "^4",
         "tsx": "^4.23.12",
-        "typescript": "^5"
+        "typescript": "^5",
+        "vitest": "^4.1.10"
     }
 }

@@ -339,4 +339,11 @@ html.lenis body {
   body[data-cursor="on"] button {
     cursor: none;
   }
+
+  /* Dialogs included.
+
+     A <dialog> opened with showModal() paints in the browser's TOP LAYER, above
+     the entire normal DOM — no z-index reaches it. Rather than surrender the
+     custom cursor inside modals, Cursor.tsx moves the dot and ring INTO the open
+     dialog, so they are in the top layer too. Nothing special is needed here. */
 }

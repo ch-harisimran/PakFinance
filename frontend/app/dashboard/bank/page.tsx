@@ -4,6 +4,8 @@ import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TransactionList } from "@/components/dashboard/TransactionList";
 import { RowActions } from "@/components/dashboard/RowActions";
+import { NoMatches } from "@/components/dashboard/SearchBox";
+import { filterBy, readQuery } from "@/lib/search";
 import {
   AddAccount,
   LogTransaction,
@@ -13,6 +15,9 @@ import {
 import { updateAccount, updateTransaction } from "@/app/dashboard/actions";
 import { getAccounts, getTransactions, cashFlow } from "@/lib/queries";
 import { paisaFull } from "@/lib/money";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Bank Accounts" };
 
 /**
  * Bank Accounts.
@@ -20,10 +25,20 @@ import { paisaFull } from "@/lib/money";
  * No credential field anywhere on this screen, by design — PakFinance never
  * asks for a bank or brokerage login, so there is nothing here worth stealing.
  */
-export default async function BankPage() {
+export default async function BankPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const [accounts, txns] = await Promise.all([getAccounts(), getTransactions(8)]);
   const flow = cashFlow(txns);
+
+  // Totals reflect every account, not the filtered view: a search narrows what
+  // you are looking at, it does not change what you own.
   const total = accounts.reduce((s, a) => s + a.balance_paisa, 0);
+
+  const q = readQuery((await searchParams).q);
+  const shown = filterBy(accounts, q, (a) => [a.name, a.kind, a.masked_number]);
 
   return (
     <div className="flex-1 px-5 py-6 sm:px-6">
@@ -56,8 +71,10 @@ export default async function BankPage() {
             ]}
           />
 
+          {q && shown.length === 0 && <NoMatches query={q} noun="accounts" />}
+
           <div className="mb-5 grid gap-5 lg:grid-cols-3">
-            {accounts.map((a) => (
+            {shown.map((a) => (
               <section key={a.id} className="card p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span

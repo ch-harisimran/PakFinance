@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { guard } from "@/lib/rate-limit";
 
 /**
  * Auth server actions.
@@ -10,6 +11,11 @@ import { createClient } from "@/lib/supabase/server";
  * credentials never round-trip through client JavaScript we control. Errors
  * come back as plain strings for the form to render — never thrown, because a
  * thrown error in a server action surfaces as a generic failure.
+ *
+ * EVERY entry point an attacker can hammer is rate limited, by email address AND
+ * by caller IP. The OTP paths matter most: a six-digit code is a million
+ * combinations, which is hours of unthrottled guessing, and it is the one secret
+ * here short enough to walk. See lib/rate-limit.ts.
  */
 
 export type ActionState = { error?: string; ok?: boolean; email?: string };
@@ -22,6 +28,9 @@ export async function signUp(_prev: ActionState, form: FormData): Promise<Action
   const fullName = String(form.get("name") ?? "").trim();
 
   if (password.length < 8) return { error: "Password must be at least 8 characters." };
+
+  const limited = await guard("signUp", email);
+  if (!limited.ok) return { error: limited.message, email };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
@@ -42,6 +51,9 @@ export async function signIn(_prev: ActionState, form: FormData): Promise<Action
   const password = String(form.get("password") ?? "");
   const next = String(form.get("next") ?? "/dashboard");
 
+  const limited = await guard("signIn", email);
+  if (!limited.ok) return { error: limited.message, email };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -58,6 +70,10 @@ export async function verifyOtp(_prev: ActionState, form: FormData): Promise<Act
   const email = emailOf(form);
   const token = String(form.get("token") ?? "").replace(/\D/g, "");
 
+  // The tightest limit in the app: this is the only secret short enough to guess.
+  const limited = await guard("otpVerify", email);
+  if (!limited.ok) return { error: limited.message, email };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
 
@@ -68,6 +84,12 @@ export async function verifyOtp(_prev: ActionState, form: FormData): Promise<Act
 
 export async function resendOtp(_prev: ActionState, form: FormData): Promise<ActionState> {
   const email = emailOf(form);
+
+  // Limited hard: the cost of abuse here is somebody else's inbox and our
+  // sending reputation, not just our CPU.
+  const limited = await guard("otpResend", email);
+  if (!limited.ok) return { error: limited.message, email };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({ type: "signup", email });
   return error ? { error: error.message, email } : { ok: true, email };
@@ -81,6 +103,9 @@ export async function requestPasswordReset(
 ): Promise<ActionState> {
   const email = emailOf(form);
   if (!email) return { error: "Enter your email address." };
+
+  const limited = await guard("passwordReset", email);
+  if (!limited.ok) return { error: limited.message, email };
 
   const supabase = await createClient();
   await supabase.auth.resetPasswordForEmail(email);
@@ -102,6 +127,10 @@ export async function verifyRecovery(
 ): Promise<ActionState> {
   const email = emailOf(form);
   const token = String(form.get("token") ?? "").replace(/\D/g, "");
+
+  // A recovery code takes over an account outright, so it gets the OTP limit.
+  const limited = await guard("otpVerify", `recovery:${email}`);
+  if (!limited.ok) return { error: limited.message, email };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });

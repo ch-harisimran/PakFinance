@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { FreshnessChip } from "@/components/dashboard/Panel";
+import { SearchBox } from "@/components/dashboard/SearchBox";
 import type { Freshness } from "@/lib/chart";
 
 /**
@@ -25,8 +26,9 @@ export function PageHeader({
   action?: string;
   /** A ready-made action element — used by the entry-form dialogs. */
   actionSlot?: ReactNode;
-  /** Placeholder for this screen's own search. Scoped to the records on this
-   *  screen — there is no global search, by design. */
+  /** Placeholder for this screen's own search, which writes `?q=` to the URL and
+   *  is read back by the screen. Scoped to the records on this screen — there is
+   *  no global search, by design. */
   search?: string;
   children?: ReactNode;
 }) {
@@ -48,21 +50,7 @@ export function PageHeader({
 
       <div className="flex flex-wrap items-center gap-3">
         {freshness && <FreshnessChip freshness={freshness} />}
-        {search && (
-          <div
-            className="flex h-9 min-w-[220px] items-center gap-2.5 rounded-[10px] border px-3 focus-within:border-[var(--color-brass)]"
-            style={{ borderColor: "var(--border-subtle)", backgroundColor: "var(--surface-1)" }}
-          >
-            <Search size={14} strokeWidth={1.8} style={{ color: "var(--text-faint)" }} />
-            <input
-              type="search"
-              placeholder={search}
-              aria-label={search}
-              className="w-full bg-transparent text-[13px] outline-none placeholder:text-[var(--text-faint)]"
-              style={{ color: "var(--text-primary)" }}
-            />
-          </div>
-        )}
+        {search && <SearchBox placeholder={search} />}
         {children}
         {actionSlot}
         {action && (

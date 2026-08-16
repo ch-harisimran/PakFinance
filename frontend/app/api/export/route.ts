@@ -8,6 +8,13 @@ import {
 } from "@/lib/queries";
 import { getTrades } from "@/lib/queries-psx";
 import { getFundOrders } from "@/lib/queries-funds";
+import {
+  getAssets,
+  getBudgets,
+  getCommittees,
+  getRecurring,
+  getZakatHistory,
+} from "@/lib/queries-wealth";
 
 /**
  * Export everything this user has entered.
@@ -21,6 +28,9 @@ import { getFundOrders } from "@/lib/queries-funds";
  */
 
 export const dynamic = "force-dynamic";
+// PDF rendering is heavier than serialising rows, and A4 pages of tables take a
+// moment on a cold function.
+export const maxDuration = 60;
 
 const rupees = (paisa: number | null | undefined) =>
   paisa === null || paisa === undefined ? "" : (paisa / 100).toFixed(2);
@@ -39,9 +49,54 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not signed in." }, { status: 401 });
 
-  const format = new URL(request.url).searchParams.get("format") === "csv" ? "csv" : "json";
+  const requested = new URL(request.url).searchParams.get("format");
+  const format = requested === "csv" ? "csv" : requested === "pdf" ? "pdf" : "json";
+  const stamp = new Date().toISOString().slice(0, 10);
 
-  const [profile, accounts, transactions, loans, goals, trades, fundOrders] = await Promise.all([
+  /**
+   * The PDF is a different kind of artefact from the other two: CSV and JSON are
+   * your records handed back verbatim, while this is a report *about* them, with
+   * derived figures and observations. It therefore has its own assembly path
+   * rather than being squeezed through the row dumps below.
+   */
+  if (format === "pdf") {
+    const { buildReportData } = await import("@/lib/report/data");
+    const { renderReport } = await import("@/lib/report/Report");
+
+    const data = await buildReportData();
+    const pdf = await renderReport(data);
+
+    return new Response(new Uint8Array(pdf), {
+      headers: {
+        "content-type": "application/pdf",
+        "content-disposition": `attachment; filename="pakfinance-report-${stamp}.pdf"`,
+      },
+    });
+  }
+
+  /**
+   * Every table the user can put a row in. When a new record type is added to
+   * the app it has to be added here too — the delete-account dialog tells people
+   * to export first, so anything missing from this list is data they were
+   * promised they could keep.
+   *
+   * All of these read over Supabase's HTTP API, not Drizzle, so the width of
+   * this fan-out is not subject to the pool ceiling in lib/db/client.ts.
+   */
+  const [
+    profile,
+    accounts,
+    transactions,
+    loans,
+    goals,
+    trades,
+    fundOrders,
+    assets,
+    budgets,
+    recurring,
+    committees,
+    zakat,
+  ] = await Promise.all([
     getProfile(),
     getAccounts(),
     getTransactions(10_000),
@@ -49,9 +104,12 @@ export async function GET(request: Request) {
     getGoals(),
     getTrades(),
     getFundOrders(),
+    getAssets(),
+    getBudgets(false),
+    getRecurring(),
+    getCommittees(),
+    getZakatHistory(0),
   ]);
-
-  const stamp = new Date().toISOString().slice(0, 10);
 
   if (format === "json") {
     const payload = {
@@ -114,6 +172,57 @@ export async function GET(request: Request) {
         nav: Number(rupees(o.navPaisa)),
         amount: Number(rupees(o.amountPaisa)),
       })),
+      assets: assets.map((a) => ({
+        name: a.name,
+        kind: a.kind,
+        quantity: a.quantity,
+        unit: a.unit,
+        cost: a.cost_paisa === null ? null : Number(rupees(a.cost_paisa)),
+        value: Number(rupees(a.value_paisa)),
+        valuedOn: a.as_of,
+        zakatable: a.zakatable,
+        note: a.note,
+      })),
+      budgets: budgets.map((b) => ({
+        category: b.category,
+        monthlyLimit: Number(rupees(b.limit_paisa)),
+        active: b.is_active,
+      })),
+      recurring: recurring.map((r) => ({
+        label: r.label,
+        category: r.category,
+        amount: Number(rupees(r.amount_paisa)),
+        cadence: r.cadence,
+        dayOfPeriod: r.day_of_period,
+        startDate: r.start_date,
+        endDate: r.end_date,
+        lastPostedOn: r.last_posted_on,
+        active: r.is_active,
+      })),
+      committees: committees.map((c) => ({
+        name: c.name,
+        organiser: c.organiser,
+        members: c.members,
+        monthly: Number(rupees(c.monthly_paisa)),
+        startMonth: c.start_month,
+        payoutPosition: c.payout_position,
+        payoutReceived: c.payout_received,
+        payoutDate: c.payout_date,
+        settled: c.is_settled,
+        payments: c.committee_payments.map((p) => ({
+          date: p.paid_at,
+          amount: Number(rupees(p.amount_paisa)),
+        })),
+      })),
+      zakatAssessments: zakat.map((z) => ({
+        assessedOn: z.assessed_on,
+        nisab: Number(rupees(z.nisab_paisa)),
+        assets: Number(rupees(z.assets_paisa)),
+        deductions: Number(rupees(z.deductions_paisa)),
+        zakatable: Number(rupees(z.zakatable_paisa)),
+        due: Number(rupees(z.due_paisa)),
+        paid: Number(rupees(z.paid_paisa)),
+      })),
     };
 
     return new Response(JSON.stringify(payload, null, 2), {
@@ -128,6 +237,11 @@ export async function GET(request: Request) {
    * One flat ledger rather than a zip of per-table files: every row is a money
    * event with a date, a source and an amount, which is the shape a spreadsheet
    * can actually sort and pivot.
+   *
+   * Only flows belong here. Assets, budgets, recurring rules and Zakat
+   * assessments are positions, plans and obligations — dropping them into a
+   * column of transactions would make any total of it wrong. They are in the
+   * JSON export, which is the complete one; the settings card says so.
    */
   const rows: string[] = [
     csvRow(["date", "source", "description", "category", "quantity", "unit_price", "amount_pkr"]),
@@ -178,6 +292,14 @@ export async function GET(request: Request) {
     rows.push(
       csvRow([o.tradedAt, "fund order", o.type, "", o.units, rupees(o.navPaisa), rupees(o.amountPaisa)]),
     );
+  }
+  for (const c of committees) {
+    for (const p of c.committee_payments) {
+      // Negative for the same reason as a loan payment: the money has left.
+      rows.push(
+        csvRow([p.paid_at, "committee payment", c.name, c.organiser, "", "", `-${rupees(p.amount_paisa)}`]),
+      );
+    }
   }
 
   // BOM so Excel opens UTF-8 correctly — without it, a name with an accent or a

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { paisaCompact, paisaFull, formatPct } from "@/lib/money";
+import { paisaCompact, paisaFull, formatPct, type Notation } from "@/lib/money";
 
 /**
  * Portfolio value over time, from the backfilled daily closes.
@@ -26,8 +26,10 @@ const H = 220;
 
 export function PortfolioChart({
   series,
+  notation,
 }: {
   series: { date: string; valuePaisa: number }[];
+  notation: Notation;
 }) {
   const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("All");
 
@@ -164,8 +166,8 @@ export function PortfolioChart({
             style={{ borderColor: "var(--border-subtle)" }}
           >
             {[
-              { k: "High", v: paisaCompact(view.max) },
-              { k: "Low", v: paisaCompact(view.min) },
+              { k: "High", v: paisaCompact(view.max, notation) },
+              { k: "Low", v: paisaCompact(view.min, notation) },
               { k: "Days tracked", v: String(series.length) },
             ].map((s) => (
               <div key={s.k}>

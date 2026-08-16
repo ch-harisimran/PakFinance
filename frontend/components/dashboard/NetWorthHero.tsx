@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import { paisaCompact, paisaFull, formatPct } from "@/lib/money";
+import { paisaCompact, paisaFull, formatPct, type Notation } from "@/lib/money";
 
 /**
  * Zone 1 — the answer. One focal point at display scale.
@@ -28,9 +28,11 @@ const H = 200;
 export function NetWorthHero({
   netPaisa,
   series,
+  notation,
 }: {
   netPaisa: number;
   series: { date: string; valuePaisa: number }[];
+  notation: Notation;
 }) {
   const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("1Y");
 
@@ -167,8 +169,8 @@ export function NetWorthHero({
             style={{ borderColor: "var(--border-subtle)" }}
           >
             {[
-              { k: "Highest", v: paisaCompact(view.max) },
-              { k: "Lowest", v: paisaCompact(view.min) },
+              { k: "Highest", v: paisaCompact(view.max, notation) },
+              { k: "Lowest", v: paisaCompact(view.min, notation) },
               { k: "Days tracked", v: String(series.length) },
             ].map((s) => (
               <div key={s.k}>

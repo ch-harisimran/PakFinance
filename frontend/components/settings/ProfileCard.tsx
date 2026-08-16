@@ -5,8 +5,14 @@ import Image from "next/image";
 import { Panel } from "@/components/dashboard/Panel";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-import { updateProfile, uploadAvatar, removeAvatar } from "@/app/dashboard/actions";
+import {
+  updateProfile,
+  uploadAvatar,
+  removeAvatar,
+  requestEmailChange,
+} from "@/app/dashboard/actions";
 import { displayName, initialsOf, type Profile } from "@/lib/profile";
+import { submitting } from "@/lib/form";
 
 /**
  * Profile.
@@ -76,6 +82,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
             ref={fileInput}
             type="file"
             accept="image/png,image/jpeg,image/webp"
+            aria-label="Choose a profile photo"
             className="hidden"
             onChange={(e) => onPick(e.target.files?.[0])}
           />
@@ -93,7 +100,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
               type="button"
               onClick={clearPhoto}
               disabled={uploading}
-              className="text-[12.5px] underline-offset-4 hover:underline disabled:opacity-60"
+              className="inline-flex min-h-[24px] items-center text-[12.5px] underline-offset-4 hover:underline disabled:opacity-60"
               style={{ color: "var(--text-faint)" }}
             >
               Remove
@@ -112,14 +119,14 @@ export function ProfileCard({ profile }: { profile: Profile }) {
         </p>
       )}
 
-      <form action={save} className="flex flex-col gap-4">
+      <form onSubmit={submitting(save)} className="flex flex-col gap-4">
         <Field label="Full name" name="full_name" defaultValue={profile.fullName ?? ""} required />
         <Field
           label="Email"
           type="email"
           defaultValue={profile.email}
           disabled
-          hint="Changing your email needs confirmation from both addresses — not built yet."
+          hint="Your sign-in address. Changing it is a separate step below."
         />
         <Field
           label="Phone"
@@ -146,6 +153,111 @@ export function ProfileCard({ profile }: { profile: Profile }) {
           )}
         </div>
       </form>
+
+      <div className="mt-6 border-t pt-5" style={{ borderColor: "var(--border-subtle)" }}>
+        <ChangeEmail current={profile.email} />
+      </div>
     </Panel>
+  );
+}
+
+/**
+ * Change the sign-in address.
+ *
+ * Kept behind a disclosure rather than sitting open in the form above: it is
+ * rare, it is consequential, and it does not complete when you press the button —
+ * it starts a confirmation both addresses have to agree to.
+ */
+function ChangeEmail({ current }: { current: string }) {
+  const [open, setOpen] = useState(false);
+  const [sent, setSent] = useState<string>();
+  const [error, setError] = useState<string>();
+  const [pending, startTransition] = useTransition();
+
+  function submit(form: FormData) {
+    startTransition(async () => {
+      const address = String(form.get("email") ?? "");
+      const result = await requestEmailChange({}, form);
+      if (result.ok) {
+        setError(undefined);
+        setSent(address);
+        setOpen(false);
+      } else {
+        setError(result.error ?? "Could not start the change.");
+      }
+    });
+  }
+
+  if (sent) {
+    return (
+      <div
+        className="rounded-[10px] border px-4 py-3.5"
+        style={{ borderColor: "var(--border-subtle)", backgroundColor: "var(--surface-1)" }}
+      >
+        <div className="text-[13px] font-medium">Confirmation sent</div>
+        <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+          Check <strong style={{ color: "var(--text-primary)" }}>{sent}</strong> and{" "}
+          <strong style={{ color: "var(--text-primary)" }}>{current}</strong>. The address
+          changes once both links are followed — until then, keep signing in with your
+          current one.
+        </p>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex min-h-[24px] items-center text-[12.5px] underline-offset-4 hover:underline"
+        style={{ color: "var(--brass-text)" }}
+      >
+        Change email address
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={submitting(submit)} className="flex flex-col gap-4">
+      <div className="text-[13px] font-medium">Change email address</div>
+      <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-faint)" }}>
+        Whoever controls your email can reset your password, so this asks for it and
+        needs confirming from both addresses.
+      </p>
+
+      <Field label="New email" name="email" type="email" placeholder="you@example.com" required />
+      <Field
+        label="Your password"
+        name="password"
+        type="password"
+        placeholder="••••••••"
+        autoComplete="current-password"
+        required
+      />
+
+      {error && (
+        <p className="text-[12.5px]" style={{ color: "var(--color-loss)" }} role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="secondary" disabled={pending}>
+          {pending ? "Sending…" : "Send confirmation"}
+        </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setError(undefined);
+            setOpen(false);
+          }}
+          className="text-[12.5px]"
+          style={{ color: "var(--text-faint)" }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

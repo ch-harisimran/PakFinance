@@ -41,7 +41,7 @@ export function Nav() {
             <a
               key={l.href}
               href={l.href}
-              className="text-[14px] transition-colors duration-200"
+              className="inline-flex min-h-[24px] items-center text-[14px] transition-colors duration-200"
               style={{ color: "var(--text-muted)" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
@@ -54,7 +54,7 @@ export function Nav() {
         <div className="flex items-center gap-4">
           <Link
             href="/login"
-            className="hidden text-[14px] transition-colors duration-200 sm:block"
+            className="hidden min-h-[24px] items-center text-[14px] transition-colors duration-200 sm:inline-flex"
             style={{ color: "var(--text-muted)" }}
           >
             Log in

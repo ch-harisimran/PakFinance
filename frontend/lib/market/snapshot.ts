@@ -1,6 +1,7 @@
-import { desc, eq, sql as raw } from "drizzle-orm";
+import { desc, eq, inArray, sql as raw } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { fundNavs, priceLatest, syncRuns } from "@/lib/db/schema/market";
+import { runTrigger } from "@/lib/market/run-context";
+import { corporateActions, fundNavs, priceLatest, syncRuns } from "@/lib/db/schema/market";
 import {
   accounts,
   fundTransactions,
@@ -10,7 +11,12 @@ import {
   profiles,
   stockTransactions,
 } from "@/lib/db/schema/app";
-import { buildHoldings, valueHoldings, type Trade } from "@/lib/market/holdings";
+import {
+  buildHoldings,
+  valueHoldings,
+  type Trade,
+  type CorporateAction,
+} from "@/lib/market/holdings";
 import { buildFundPositions, valueFunds, type FundOrder } from "@/lib/market/fund-holdings";
 import { karachiNow } from "@/lib/market/sessions";
 
@@ -45,6 +51,7 @@ export async function runSnapshot({ force = false } = {}): Promise<SnapshotResul
       await db.insert(syncRuns).values({
         job: "snapshot",
         status: "skipped",
+        trigger: runTrigger(),
         reason: "already-today",
         finishedAt: new Date(),
       });
@@ -54,7 +61,7 @@ export async function runSnapshot({ force = false } = {}): Promise<SnapshotResul
 
   const [run] = await db
     .insert(syncRuns)
-    .values({ job: "snapshot", status: "running" })
+    .values({ job: "snapshot", status: "running", trigger: runTrigger() })
     .returning({ id: syncRuns.id });
 
   try {
@@ -86,6 +93,31 @@ export async function runSnapshot({ force = false } = {}): Promise<SnapshotResul
       .from(fundNavs)
       .orderBy(fundNavs.fundId, desc(fundNavs.sessionDate));
 
+    // Splits and symbol changes apply to every user at once, so they are loaded
+    // whole rather than per user. Without them a snapshot taken after a split
+    // records the pre-split share count against post-split prices — and unlike
+    // the screens, a wrong snapshot is written down permanently.
+    const actionRows = await db
+      .select({
+        symbol: corporateActions.symbol,
+        kind: corporateActions.kind,
+        exDate: corporateActions.exDate,
+        ratioFrom: corporateActions.ratioFrom,
+        ratioTo: corporateActions.ratioTo,
+        newSymbol: corporateActions.newSymbol,
+      })
+      .from(corporateActions)
+      .where(inArray(corporateActions.kind, ["SPLIT", "SYMBOL_CHANGE", "MERGER"]));
+
+    const actions: CorporateAction[] = actionRows.map((r) => ({
+      symbol: r.symbol,
+      kind: r.kind as CorporateAction["kind"],
+      exDate: String(r.exDate),
+      ratioFrom: r.ratioFrom === null ? null : Number(r.ratioFrom),
+      ratioTo: r.ratioTo === null ? null : Number(r.ratioTo),
+      newSymbol: r.newSymbol,
+    }));
+
     const quoteMap = new Map(
       quotes.map((q) => [q.symbol, { pricePaisa: Math.round(Number(q.price) * 100), changePct: null }]),
     );
@@ -105,7 +137,7 @@ export async function runSnapshot({ force = false } = {}): Promise<SnapshotResul
 
     const rows = users.map(({ userId }) => {
       const holdings = valueHoldings(
-        buildHoldings((tradesByUser.get(userId) ?? []).map(toTrade)),
+        buildHoldings((tradesByUser.get(userId) ?? []).map(toTrade), actions),
         quoteMap,
       );
       const positions = valueFunds(

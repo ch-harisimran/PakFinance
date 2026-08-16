@@ -66,7 +66,7 @@ function FormDialog({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="text-[12.5px] underline-offset-4 hover:underline"
+          className="inline-flex min-h-[24px] items-center text-[12.5px] underline-offset-4 hover:underline"
           style={{ color: "var(--brass-text)" }}
         >
           {label}

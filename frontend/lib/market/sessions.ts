@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { marketHolidays, sessions } from "@/lib/db/schema/market";
 
@@ -134,9 +134,4 @@ export async function getMarketState(at: Date = new Date()): Promise<MarketState
           ? "after-close"
           : "between-sessions",
   };
-}
-
-/** Only used by tests and the manual `?dry=1` probe. */
-export async function sessionsFor(weekday: number) {
-  return db.select().from(sessions).where(and(eq(sessions.weekday, weekday)));
 }

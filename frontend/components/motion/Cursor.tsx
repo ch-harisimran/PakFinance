@@ -67,24 +67,84 @@ export function Cursor() {
         ease: "power3.out",
       });
 
-    const targets = Array.from(
-      document.querySelectorAll<HTMLElement>("a, button, [data-cursor-grow]"),
-    );
-    targets.forEach((el) => {
-      el.addEventListener("mouseenter", grow);
-      el.addEventListener("mouseleave", shrink);
-    });
+    /**
+     * Delegated, not bound per element.
+     *
+     * The previous version queried every `a` and `button` once on mount and
+     * attached listeners to that snapshot — so nothing rendered afterwards ever
+     * grew the ring. On a page of dialogs, row menus and server-rendered lists
+     * that is most of the interactive surface, and the effect silently applied
+     * to a shrinking fraction of it.
+     *
+     * `mouseover`/`mouseout` bubble (`mouseenter`/`mouseleave` do not), so one
+     * pair of listeners on the document covers everything, forever, including
+     * elements that do not exist yet.
+     */
+    const SELECTOR = "a, button, [data-cursor-grow]";
 
+    const onOver = (e: MouseEvent) => {
+      const from = (e.relatedTarget as HTMLElement | null)?.closest?.(SELECTOR);
+      const to = (e.target as HTMLElement).closest(SELECTOR);
+      // Ignore movement between children of the same target.
+      if (to && to !== from) grow();
+    };
+
+    const onOut = (e: MouseEvent) => {
+      const from = (e.target as HTMLElement).closest(SELECTOR);
+      const to = (e.relatedTarget as HTMLElement | null)?.closest?.(SELECTOR);
+      if (from && to !== from) shrink();
+    };
+
+    /**
+     * Follow the top layer.
+     *
+     * A <dialog> opened with showModal() is painted in the browser's TOP LAYER,
+     * which sits above the whole normal DOM — z-index cannot reach it, at any
+     * value. So while a modal is open the cursor has to live INSIDE it, or it is
+     * simply occluded and the pointer vanishes.
+     *
+     * Both elements are `position: fixed`, so they still track the viewport
+     * wherever they are parented, and fixed positioning is not clipped by an
+     * ancestor's overflow — the cursor still moves across the backdrop and the
+     * rest of the screen, not just the dialog's box.
+     */
+    const home = document.body;
+
+    const reparent = () => {
+      const dialogs = document.querySelectorAll<HTMLDialogElement>("dialog[open]");
+      // The last open dialog is the topmost one, which is the one to sit above.
+      const host: HTMLElement = dialogs.length ? dialogs[dialogs.length - 1] : home;
+
+      // Only touch the DOM when it actually needs to change: this runs on every
+      // mutation, and moving a node resets nothing but still costs layout.
+      if (dotEl.parentElement !== host) host.appendChild(dotEl);
+      if (ringEl.parentElement !== host) host.appendChild(ringEl);
+    };
+
+    // Modals mount and unmount their <dialog>, and `open` toggles on it, so both
+    // kinds of change matter.
+    const observer = new MutationObserver(reparent);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributeFilter: ["open"],
+    });
+    reparent();
+
+    document.addEventListener("mouseover", onOver);
+    document.addEventListener("mouseout", onOut);
     window.addEventListener("mousemove", onMove);
     gsap.ticker.add(tick);
 
     return () => {
       window.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseover", onOver);
+      document.removeEventListener("mouseout", onOut);
+      observer.disconnect();
       gsap.ticker.remove(tick);
-      targets.forEach((el) => {
-        el.removeEventListener("mouseenter", grow);
-        el.removeEventListener("mouseleave", shrink);
-      });
+      // Back where React expects them, or unmount will not find them.
+      if (dotEl.parentElement !== home) home.appendChild(dotEl);
+      if (ringEl.parentElement !== home) home.appendChild(ringEl);
       dotEl.style.display = "none";
       ringEl.style.display = "none";
       delete document.body.dataset.cursor;

@@ -1,5 +1,6 @@
 import { and, eq, inArray, sql as raw } from "drizzle-orm";
 import { db } from "@/lib/db/client";
+import { runTrigger } from "@/lib/market/run-context";
 import { syncRuns } from "@/lib/db/schema/market";
 import { loans, loanPayments, loanRemindersSent, profiles } from "@/lib/db/schema/app";
 import { karachiNow } from "@/lib/market/sessions";
@@ -130,7 +131,7 @@ export async function runLoanReminders({ dryRun = false } = {}): Promise<Reminde
 
   const [run] = await db
     .insert(syncRuns)
-    .values({ job: "loan-reminders", status: "running" })
+    .values({ job: "loan-reminders", status: "running", trigger: runTrigger() })
     .returning({ id: syncRuns.id });
 
   let sent = 0;

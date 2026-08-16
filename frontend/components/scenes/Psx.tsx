@@ -22,7 +22,7 @@ const ROWS = [
 
 export function Psx() {
   return (
-    <Section scene="psx" ground="warm">
+    <Section id="psx" scene="psx" ground="warm">
       <div className="grid gap-14 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-center lg:gap-16">
         <SectionHead
           eyebrow="Pakistan Stock Exchange"

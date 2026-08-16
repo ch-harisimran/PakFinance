@@ -3,6 +3,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { submitting } from "@/lib/form";
 import type { FormState } from "@/app/dashboard/actions";
 
 /**
@@ -44,13 +45,15 @@ export function FormShell({
     onClose();
   }
 
+  // `submitting` rather than `action={submit}`: React resets an uncontrolled
+  // form when an action returns, error or not, which is what made a rejected
+  // field wipe every other one the user had just filled in. See lib/form.ts.
   function submit(formData: FormData) {
     startTransition(async () => {
       const result = await action({}, formData);
       if (result?.ok) {
         close();
       } else {
-        // Keep the dialog open so the typed values survive a validation error.
         setError(result?.error ?? "Something went wrong.");
       }
     });
@@ -58,7 +61,7 @@ export function FormShell({
 
   return (
     <Modal open={open} onClose={close} title={title} description={description}>
-      <form action={submit} className="flex flex-col gap-4">
+      <form onSubmit={submitting(submit)} className="flex flex-col gap-4">
         {children}
 
         {error && (

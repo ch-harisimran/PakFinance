@@ -1,7 +1,7 @@
 import { Breakdown } from "@/components/dashboard/Breakdown";
 import { Meter } from "@/components/ui/Meter";
 import { CHART } from "@/lib/chart";
-import { paisaCompact, paisaFull } from "@/lib/money";
+import { paisaCompact, paisaFull, type Notation } from "@/lib/money";
 import type { NetWorthBreakdown } from "@/lib/queries-networth";
 
 /**
@@ -15,16 +15,21 @@ import type { NetWorthBreakdown } from "@/lib/queries-networth";
 export function BalanceSheet({
   breakdown,
   loans,
+  notation,
 }: {
   breakdown: NetWorthBreakdown;
+  notation: Notation;
   loans: { id: string; name: string; lender: string | null; remainingPaisa: number; repaidPct: number }[];
 }) {
-  const { assetsPaisa, liabilitiesPaisa, psxPaisa, fundsPaisa, cashPaisa } = breakdown;
+  const { assetsPaisa, liabilitiesPaisa, psxPaisa, fundsPaisa, cashPaisa, otherPaisa, committeesPaisa } =
+    breakdown;
 
   const allocation = [
     { key: "PSX equities", value: psxPaisa, color: CHART[0] },
     { key: "Mutual funds", value: fundsPaisa, color: CHART[1] },
     { key: "Bank & cash", value: cashPaisa, color: CHART[2] },
+    { key: "Gold & other", value: otherPaisa, color: CHART[3] },
+    { key: "Committees", value: committeesPaisa, color: CHART[4 % CHART.length] },
   ]
     .filter((a) => a.value > 0)
     .map((a) => ({
@@ -49,7 +54,7 @@ export function BalanceSheet({
             </div>
             <div className="flex items-baseline text-[21px] font-semibold leading-none tracking-[-0.025em]">
               <span className="currency">PKR</span>
-              <span data-numeric>{paisaCompact(assetsPaisa)}</span>
+              <span data-numeric>{paisaCompact(assetsPaisa, notation)}</span>
             </div>
           </div>
           <div>
@@ -61,7 +66,7 @@ export function BalanceSheet({
             </div>
             <div className="flex items-baseline text-[21px] font-semibold leading-none tracking-[-0.025em]">
               <span className="currency">PKR</span>
-              <span data-numeric>{paisaCompact(liabilitiesPaisa)}</span>
+              <span data-numeric>{paisaCompact(liabilitiesPaisa, notation)}</span>
             </div>
           </div>
         </div>
@@ -89,7 +94,7 @@ export function BalanceSheet({
           Where your money is
         </p>
         {allocation.length ? (
-          <Breakdown items={allocation} className="mt-5" />
+          <Breakdown items={allocation} notation={notation} className="mt-5" />
         ) : (
           <p className="py-6 text-center text-[13px]" style={{ color: "var(--text-faint)" }}>
             Add a holding or an account to see your allocation.

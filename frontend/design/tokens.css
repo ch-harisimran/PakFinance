@@ -76,10 +76,17 @@
   /* active ground — dark default */
   --ground:        #0A0B0D;
 
+  /* Every one of these clears WCAG AA (4.5:1) against the darkest ground, so
+     the ramp can be used at any size without checking each time.
+
+     `--text-faint` was #65625C, which measured 2.65:1 — it is used for 11.5px
+     captions like dates, units and amounts, exactly the text that most needs
+     contrast and least survives without it. Lightened until it passes. It is
+     still clearly the quietest step in the ramp; it is no longer unreadable. */
   --text-primary:  #EAE7E0;
   --text-secondary:#B4B0A8;
   --text-muted:    #93908A;
-  --text-faint:    #65625C;
+  --text-faint:    #8E8B83;
 
   --surface-1: rgba(255, 255, 255, 0.035);
   --surface-2: rgba(255, 255, 255, 0.060);

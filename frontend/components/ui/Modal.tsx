@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 /**
@@ -22,6 +22,11 @@ export function Modal({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // The heading is visible, but nothing connects it to the dialog: without
+  // these a screen reader announces "dialog" and stops, and the user is inside
+  // a trapped context with no idea what it is for.
+  const titleId = useId();
+  const descId = useId();
 
   useEffect(() => {
     const el = ref.current;
@@ -35,6 +40,8 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descId : undefined}
       onClose={onClose}
       onClick={(e) => {
         // Clicking the backdrop closes; clicking the panel must not.
@@ -53,9 +60,11 @@ export function Modal({
         style={{ borderColor: "var(--border-subtle)" }}
       >
         <div>
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em]">{title}</h2>
+          <h2 id={titleId} className="text-[16px] font-semibold tracking-[-0.01em]">
+            {title}
+          </h2>
           {description && (
-            <p className="mt-1 text-[12.5px]" style={{ color: "var(--text-faint)" }}>
+            <p id={descId} className="mt-1 text-[12.5px]" style={{ color: "var(--text-faint)" }}>
               {description}
             </p>
           )}

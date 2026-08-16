@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Monitor } from "lucide-react";
 import { Panel } from "@/components/dashboard/Panel";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { PinSettings } from "@/components/auth/PinSettings";
+import { SessionList } from "@/components/settings/SessionList";
 import { changePassword } from "@/app/dashboard/actions";
+import type { SessionRow } from "@/lib/queries-sessions";
+import { submitting } from "@/lib/form";
 
 /**
  * Security.
@@ -16,7 +18,13 @@ import { changePassword } from "@/app/dashboard/actions";
  * What actually protects this account is stated instead: a verified email at
  * sign-up, and the PIN lock below.
  */
-export function SecurityCard({ lastSignInAt }: { lastSignInAt: string | null }) {
+export function SecurityCard({
+  lastSignInAt,
+  sessions,
+}: {
+  lastSignInAt: string | null;
+  sessions: SessionRow[];
+}) {
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -49,7 +57,7 @@ export function SecurityCard({ lastSignInAt }: { lastSignInAt: string | null }) 
     <Panel title="Security">
       {/* key remounts the form after a successful change, clearing the three
           password boxes without an effect that reaches into the DOM. */}
-      <form action={submit} key={done ? "done" : "editing"} className="flex flex-col gap-4">
+      <form onSubmit={submitting(submit)} key={done ? "done" : "editing"} className="flex flex-col gap-4">
         <Field
           label="Current password"
           name="current_password"
@@ -97,30 +105,12 @@ export function SecurityCard({ lastSignInAt }: { lastSignInAt: string | null }) 
         <PinSettings />
 
         <div className="mt-5">
-          <div className="mb-2 text-[13px] font-medium">This session</div>
-          <div
-            className="flex items-center justify-between gap-4 rounded-[10px] border px-3.5 py-3"
-            style={{ borderColor: "var(--border-subtle)", backgroundColor: "var(--surface-1)" }}
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <Monitor size={15} strokeWidth={1.7} style={{ color: "var(--text-faint)" }} />
-              <div className="min-w-0">
-                <div className="text-[12.5px]">Signed in</div>
-                <div className="mt-0.5 truncate text-[11px]" style={{ color: "var(--text-faint)" }}>
-                  {lastSignIn ? `Last sign-in ${lastSignIn} PKT` : "Sign-in time unavailable"}
-                </div>
-              </div>
-            </div>
-            <span className="flex-none text-[11.5px]" style={{ color: "var(--color-gain)" }}>
-              Active
-            </span>
-          </div>
-          {/* Listing every device would need a session table of our own; Supabase
-              does not expose other sessions to the client. One honest row beats
-              a fabricated list. */}
-          <p className="mt-2 text-[11px]" style={{ color: "var(--text-faint)" }}>
-            Signing out below ends this session only.
+          <div className="mb-1 text-[13px] font-medium">Signed-in devices</div>
+          <p className="mb-2.5 text-[11.5px]" style={{ color: "var(--text-faint)" }}>
+            {lastSignIn ? `Last sign-in ${lastSignIn} PKT.` : ""} End anything you
+            don&rsquo;t recognise.
           </p>
+          <SessionList sessions={sessions} />
         </div>
       </div>
     </Panel>

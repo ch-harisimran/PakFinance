@@ -43,3 +43,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Sample output from scripts/verify-report.ts
+report-sample.pdf
+
+# Local database backups — never commit these, they contain user data
+backups/

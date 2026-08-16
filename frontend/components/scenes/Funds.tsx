@@ -58,7 +58,7 @@ export function Funds() {
   );
 
   return (
-    <Section scene="funds" ground="warm">
+    <Section id="funds" scene="funds" ground="warm">
       <SectionHead
         eyebrow="Mutual funds"
         headline={

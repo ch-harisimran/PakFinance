@@ -4,10 +4,15 @@ import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Meter } from "@/components/ui/Meter";
 import { RowActions } from "@/components/dashboard/RowActions";
+import { NoMatches } from "@/components/dashboard/SearchBox";
+import { filterBy, readQuery } from "@/lib/search";
 import { AddLoan, LogPayment, LoanFields, PaymentFields } from "@/components/forms/EntryForms";
 import { updateLoan, updateLoanPayment } from "@/app/dashboard/actions";
 import { getLoans, loanOutstanding } from "@/lib/queries";
 import { paisaFull } from "@/lib/money";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Loans" };
 
 /**
  * Loans.
@@ -15,9 +20,16 @@ import { paisaFull } from "@/lib/money";
  * The outstanding balance is derived from the payment ledger, never stored — a
  * stored balance and a payment log drift apart the first time either is edited.
  */
-export default async function LoansPage() {
+export default async function LoansPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const loans = await getLoans();
   const rows = loans.map((l) => ({ ...l, ...loanOutstanding(l) }));
+
+  const q = readQuery((await searchParams).q);
+  const shown = filterBy(rows, q, (l) => [l.name, l.lender, l.kind]);
 
   const outstanding = rows.reduce((s, l) => s + l.remainingPaisa, 0);
   const monthly = rows.reduce((s, l) => s + (l.installment_paisa ?? 0), 0);
@@ -52,8 +64,10 @@ export default async function LoansPage() {
             ]}
           />
 
+          {q && shown.length === 0 && <NoMatches query={q} noun="loans" />}
+
           <div className="mb-5 grid gap-5 lg:grid-cols-2">
-            {rows.map((l) => (
+            {shown.map((l) => (
               <section key={l.id} className="card p-5">
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>

@@ -33,11 +33,20 @@ export const securityKind = market.enum("security_kind", [
   "DEBT",
 ]);
 
+/**
+ * BONUS, RIGHT and DIVIDEND are recorded by the user as trades — that is how a
+ * broker note reads — so rows of those kinds here are reference only and are
+ * NOT applied to holdings, or the shares would be counted twice.
+ *
+ * SPLIT, SYMBOL_CHANGE and MERGER cannot be entered as trades and ARE applied.
+ */
 export const actionKind = market.enum("action_kind", [
   "BONUS",
   "SPLIT",
   "RIGHT",
   "DIVIDEND",
+  "SYMBOL_CHANGE",
+  "MERGER",
 ]);
 
 /**
@@ -50,8 +59,12 @@ export const securities = market.table(
     symbol: text("symbol").primaryKey(),
     name: text("name").notNull(),
     kind: securityKind("kind").notNull(),
+    /** PSX sector CODE, e.g. "0813". Names live in the `sectors` table. */
     sector: text("sector"),
+    /** @deprecated Comma-packed index list. Use `indices`. */
     board: text("board"),
+    /** Index membership: ["ALLSHR","KSE100","KMI30"]. GIN-indexed. */
+    indices: text("indices").array(),
     /**
      * Symbols that stop appearing in the feed are marked inactive — never
      * deleted. A user may hold one, and removing the row would destroy their
@@ -63,6 +76,20 @@ export const securities = market.table(
   },
   (t) => [index("securities_active_idx").on(t.isActive)],
 );
+
+/**
+ * PSX sector code → readable name.
+ *
+ * The market watch feed carries the code and never the name, so this cannot be
+ * derived — it has to be supplied. Seed it with `npm run seed:sectors -- --file
+ * sectors.csv`. Until then the UI falls back to showing the code, which is
+ * honest; inventing names to fill the gap would put the wrong industry against
+ * somebody's holdings.
+ */
+export const sectors = market.table("sectors", {
+  code: text("code").primaryKey(),
+  name: text("name").notNull(),
+});
 
 /**
  * One row per symbol, overwritten each sync.
@@ -176,12 +203,33 @@ export const corporateActions = market.table(
       .references(() => securities.symbol),
     kind: actionKind("kind").notNull(),
     exDate: date("ex_date").notNull(),
+    /** A 1-for-10 split is ratioFrom 1, ratioTo 10: each old share becomes ten. */
     ratioFrom: numeric("ratio_from", { precision: 10, scale: 4 }),
     ratioTo: numeric("ratio_to", { precision: 10, scale: 4 }),
     amount: numeric("amount", { precision: 14, scale: 4 }),
+    /** Destination for SYMBOL_CHANGE and MERGER. */
+    newSymbol: text("new_symbol"),
+    note: text("note"),
   },
   (t) => [index("corp_actions_symbol_idx").on(t.symbol, t.exDate)],
 );
+
+/**
+ * A previously used fund name, pointing at the fund it really is.
+ *
+ * MUFAP publishes no stable fund code, so identity is (lower(name), category).
+ * That holds until an AMC renames a fund, at which point the NAV sync would
+ * create a second row and the user's units would sit against the old one. The
+ * sync checks here first.
+ */
+export const fundAliases = market.table("fund_aliases", {
+  alias: text("alias").primaryKey(),
+  fundId: uuid("fund_id")
+    .notNull()
+    .references(() => funds.id, { onDelete: "cascade" }),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 /**
  * Trading sessions, in a table rather than in code.
@@ -219,6 +267,12 @@ export const syncRuns = market.table(
     reason: text("reason"), // holiday | closed | too-soon
     rowsWritten: bigint("rows_written", { mode: "number" }),
     error: text("error"),
+    /**
+     * How the run started: "schedule", "workflow_dispatch", "api", or "local".
+     * A green manual run proves the code; only a `schedule` row proves the cron
+     * is still firing, which is the failure that leaves no other trace.
+     */
+    trigger: text("trigger"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
   },
