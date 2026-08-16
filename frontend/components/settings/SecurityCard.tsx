@@ -21,9 +21,13 @@ import { submitting } from "@/lib/form";
 export function SecurityCard({
   lastSignInAt,
   sessions,
+  pinSet,
 }: {
   lastSignInAt: string | null;
   sessions: SessionRow[];
+  /** Whether the account has a quick-unlock PIN. Read from the profile, not
+      from this browser — the PIN outlives both the session and the device. */
+  pinSet: boolean;
 }) {
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
@@ -57,7 +61,7 @@ export function SecurityCard({
     <Panel title="Security">
       {/* key remounts the form after a successful change, clearing the three
           password boxes without an effect that reaches into the DOM. */}
-      <form onSubmit={submitting(submit)} key={done ? "done" : "editing"} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submitting(submit)} key={done ? "done" : "editing"} className="flex flex-col gap-4">
         <Field
           label="Current password"
           name="current_password"
@@ -102,7 +106,7 @@ export function SecurityCard({
       </form>
 
       <div className="mt-6 border-t pt-5" style={{ borderColor: "var(--border-subtle)" }}>
-        <PinSettings />
+        <PinSettings pinSet={pinSet} />
 
         <div className="mt-5">
           <div className="mb-1 text-[13px] font-medium">Signed-in devices</div>

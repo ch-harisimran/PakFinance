@@ -237,7 +237,7 @@ export function ZakatCalculator({ sources }: { sources: ZakatSources }) {
                 </div>
               </div>
 
-              <form onSubmit={submitting(save)} className="mt-5">
+              <form method="post" onSubmit={submitting(save)} className="mt-5">
                 <input type="hidden" name="nisab_paisa" value={result.nisabPaisa} />
                 <input type="hidden" name="assets_paisa" value={result.assetsPaisa} />
                 <input type="hidden" name="deductions_paisa" value={result.deductionsPaisa} />

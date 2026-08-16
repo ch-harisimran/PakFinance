@@ -119,7 +119,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
         </p>
       )}
 
-      <form onSubmit={submitting(save)} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submitting(save)} className="flex flex-col gap-4">
         <Field label="Full name" name="full_name" defaultValue={profile.fullName ?? ""} required />
         <Field
           label="Email"
@@ -219,7 +219,7 @@ function ChangeEmail({ current }: { current: string }) {
   }
 
   return (
-    <form onSubmit={submitting(submit)} className="flex flex-col gap-4">
+    <form method="post" onSubmit={submitting(submit)} className="flex flex-col gap-4">
       <div className="text-[13px] font-medium">Change email address</div>
       <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-faint)" }}>
         Whoever controls your email can reset your password, so this asks for it and

@@ -57,7 +57,11 @@ export default async function SettingsPage({
 
       <div className="grid gap-5 xl:grid-cols-2">
         <ProfileCard profile={profile} />
-        <SecurityCard lastSignInAt={profile.lastSignInAt} sessions={sessions} />
+        <SecurityCard
+          lastSignInAt={profile.lastSignInAt}
+          sessions={sessions}
+          pinSet={profile.pinSet}
+        />
         <PreferencesCard profile={profile} />
 
         <Panel title="Your data">

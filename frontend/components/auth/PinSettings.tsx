@@ -1,57 +1,65 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { KeyRound, ShieldOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PinPad } from "@/components/auth/PinPad";
 import { Switch } from "@/components/ui/Switch";
 import { wrapSession, PIN_VALID_DAYS } from "@/lib/pin/crypto";
-import { clearPin, hasPin, savePin } from "@/lib/pin/store";
+import { clearPin, savePin } from "@/lib/pin/store";
+import { setPin as setPinOnServer, removePin } from "@/app/dashboard/pin-actions";
 
 /**
  * Set, change or remove the quick-unlock PIN.
  *
- * Changing and setting are the same operation — we re-wrap the current session
- * with a new key. There is no "old PIN" check here because the PIN is not a
- * stored secret to compare against; possession of a live session is the
- * authority, and you only reach Settings by already being signed in.
+ * The PIN belongs to the account, so whether one exists is read from the
+ * profile, not from this browser's localStorage — otherwise signing in on a
+ * second device would offer to "set up" a PIN that is already set, and quietly
+ * overwrite it.
+ *
+ * Setting one does two things. The server stores a verifier so the PIN survives
+ * sign-out and outlives this browser; the client wraps the current session with
+ * it so unlocking here needs no network round trip. Changing and setting are
+ * the same operation. There is no "old PIN" prompt: possession of a live
+ * session is the authority, and you only reach Settings by already being signed
+ * in — the same reason changing it does not ask for your password.
  */
 
 type Stage = "idle" | "enter" | "confirm" | "saved";
 
-export function PinSettings() {
-  const [enabled, setEnabled] = useState(false);
+export function PinSettings({ pinSet }: { pinSet: boolean }) {
+  const [enabled, setEnabled] = useState(pinSet);
   const [stage, setStage] = useState<Stage>("idle");
   const [first, setFirst] = useState("");
   const [error, setError] = useState<string>();
-  const [mounted, setMounted] = useState(false);
-
-  // Deferred a tick: localStorage is unavailable during SSR so this cannot be
-  // lazy initial state, and setting it inline cascades an extra render.
-  useEffect(() => {
-    const id = setTimeout(() => {
-      setEnabled(hasPin());
-      setMounted(true);
-    }, 0);
-    return () => clearTimeout(id);
-  }, []);
+  const [busy, setBusy] = useState(false);
 
   async function finish(pin: string) {
-    const supabase = createClient();
-    const { data } = await supabase.auth.getSession();
-    const session = data.session;
+    setBusy(true);
 
-    if (!session?.refresh_token) {
-      setError("Session expired. Sign in again to set a PIN.");
+    // Server first: it is the copy that has to survive. If the local wrap fails
+    // afterwards the PIN still works — the lock screen falls back to verifying
+    // against the server — whereas the reverse would leave a PIN that only this
+    // browser knows about.
+    const stored = await setPinOnServer(pin);
+    if (!stored.ok) {
+      setError(stored.error);
       setStage("idle");
+      setBusy(false);
       return;
     }
 
-    const blob = await wrapSession(pin, session.refresh_token, session.user.email ?? "");
-    savePin(blob);
+    const supabase = createClient();
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (session?.refresh_token) {
+      savePin(await wrapSession(pin, session.refresh_token, session.user.email ?? ""));
+    }
+
     setEnabled(true);
     setStage("saved");
     setError(undefined);
+    setBusy(false);
   }
 
   function onEntered(pin: string) {
@@ -70,16 +78,21 @@ export function PinSettings() {
     finish(pin);
   }
 
-  function disable() {
+  async function disable() {
+    setBusy(true);
+    const result = await removePin();
+    if (!result.ok) {
+      setError(result.error);
+      setBusy(false);
+      return;
+    }
     clearPin();
     setEnabled(false);
     setStage("idle");
     setFirst("");
+    setError(undefined);
+    setBusy(false);
   }
-
-  // Rendered only after mount: localStorage is unavailable during SSR, and a
-  // server/client mismatch on this switch would hydrate wrong.
-  if (!mounted) return null;
 
   return (
     <div className="border-t pt-5" style={{ borderColor: "var(--border-subtle)" }}>
@@ -90,9 +103,9 @@ export function PinSettings() {
             Quick unlock PIN
           </div>
           <p className="mt-1 max-w-[52ch] text-[11.5px]" style={{ color: "var(--text-faint)" }}>
-            A 6-digit PIN unlocks the app for {PIN_VALID_DAYS} days instead of a full sign-in, and
-            after 3 minutes of inactivity. Your session is encrypted with it — losing the PIN just
-            means signing in again.
+            A 6-digit PIN unlocks the app after 3 minutes of inactivity, and for{" "}
+            {PIN_VALID_DAYS} days instead of a full sign-in. It stays with your account —
+            signing out does not clear it, and you will not be asked to choose a new one.
           </p>
         </div>
 
@@ -117,11 +130,15 @@ export function PinSettings() {
           style={{ borderColor: "var(--border-subtle)", backgroundColor: "var(--surface-1)" }}
         >
           <p className="mb-4 text-[13px]" style={{ color: "var(--text-secondary)" }}>
-            {stage === "enter" ? "Choose a 6-digit PIN" : "Enter it once more"}
+            {stage === "enter"
+              ? enabled
+                ? "Choose a new 6-digit PIN"
+                : "Choose a 6-digit PIN"
+              : "Enter it once more"}
           </p>
-          <PinPad key={stage} onComplete={onEntered} error={Boolean(error)} />
+          <PinPad key={stage} onComplete={onEntered} disabled={busy} error={Boolean(error)} />
           {error && (
-            <p className="mt-3 text-[12.5px]" style={{ color: "var(--color-loss)" }}>
+            <p className="mt-3 text-[12.5px]" style={{ color: "var(--color-loss)" }} role="alert">
               {error}
             </p>
           )}
@@ -139,9 +156,14 @@ export function PinSettings() {
       )}
 
       {stage === "saved" && (
-        <p className="mt-3 text-[12.5px]" style={{ color: "var(--color-gain)" }}>
-          PIN set. It will be asked for after 3 minutes idle, and on return within{" "}
-          {PIN_VALID_DAYS} days.
+        <p className="mt-3 text-[12.5px]" style={{ color: "var(--color-gain)" }} role="status">
+          PIN saved. It stays with your account until you change it here.
+        </p>
+      )}
+
+      {error && stage === "idle" && (
+        <p className="mt-3 text-[12.5px]" style={{ color: "var(--color-loss)" }} role="alert">
+          {error}
         </p>
       )}
 
@@ -151,7 +173,7 @@ export function PinSettings() {
             setStage("enter");
             setFirst("");
           }}
-          className="mt-2 inline-flex items-center gap-2 text-[12.5px] underline-offset-4 hover:underline"
+          className="mt-2 inline-flex min-h-[24px] items-center gap-2 text-[12.5px] underline-offset-4 hover:underline"
           style={{ color: "var(--brass-text)" }}
         >
           <ShieldOff size={13} strokeWidth={1.7} />

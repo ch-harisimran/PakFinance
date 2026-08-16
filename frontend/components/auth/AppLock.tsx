@@ -5,7 +5,8 @@ import { ShieldCheck, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/brand/Logo";
 import { PinPad } from "@/components/auth/PinPad";
-import { unwrapSession, MAX_ATTEMPTS } from "@/lib/pin/crypto";
+import { unwrapSession, wrapSession, MAX_ATTEMPTS } from "@/lib/pin/crypto";
+import { verifyPin } from "@/app/dashboard/pin-actions";
 import {
   attemptsLeft,
   clearLocked,
@@ -14,6 +15,7 @@ import {
   markLocked,
   recordFailure,
   resetFailures,
+  savePin,
   wasLocked,
 } from "@/lib/pin/store";
 
@@ -25,12 +27,33 @@ import {
  *
  * Unlocking decrypts the stored refresh token, so a correct PIN is proven by
  * the ciphertext opening, not by comparing strings in JavaScript.
+ *
+ * There are two ways to prove a PIN, and which one applies depends on whether
+ * this browser holds a wrapped session:
+ *
+ *   - It does — the usual case. Decrypting proves the PIN and hands back the
+ *     refresh token in one step, offline.
+ *   - It does not — the first lock after a fresh sign-in, or after site data
+ *     was cleared. The account still has a PIN (`pinSet` comes from the
+ *     profile), so the server checks it, and on success we wrap the CURRENT
+ *     session here so every later unlock takes the offline path again.
+ *
+ * That second path is what makes the PIN outlive a sign-out. Signing out
+ * revokes the refresh token, so the wrapped blob is worthless and gets cleared;
+ * the PIN itself lives on the account and is never asked to be chosen again.
  */
 
 const IDLE_MINUTES = 3;
 const ACTIVITY = ["mousedown", "keydown", "touchstart", "scroll", "pointermove"] as const;
 
-export function AppLock({ children }: { children: React.ReactNode }) {
+export function AppLock({
+  pinSet,
+  children,
+}: {
+  /** Whether the ACCOUNT has a PIN — not whether this browser has a blob. */
+  pinSet: boolean;
+  children: React.ReactNode;
+}) {
   const [locked, setLocked] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string>();
@@ -51,8 +74,10 @@ export function AppLock({ children }: { children: React.ReactNode }) {
   };
 
   // Only ever locks when a PIN is actually set; otherwise the app is unguarded
-  // by choice and an idle timeout would just be an obstacle.
-  const armed = useCallback(() => loadPin() !== null, []);
+  // by choice and an idle timeout would just be an obstacle. The account's PIN
+  // counts even with no blob here — that is exactly the state a fresh sign-in
+  // leaves this browser in, and it must still lock.
+  const armed = useCallback(() => pinSet || loadPin() !== null, [pinSet]);
 
   const lock = useCallback(() => {
     if (!armed()) return;
@@ -99,50 +124,81 @@ export function AppLock({ children }: { children: React.ReactNode }) {
     };
   }, [locked, bump, lock]);
 
+  /** Shared rejection handling for both proof paths. */
+  async function reject(message?: string) {
+    const remaining = recordFailure();
+    setLeft(remaining);
+    setAttempt((n) => n + 1);
+    setBusy(false);
+    setError(
+      remaining > 0
+        ? (message ?? `Wrong PIN. ${remaining} attempt${remaining === 1 ? "" : "s"} left.`)
+        : "Too many attempts. Sign in again.",
+    );
+    if (remaining <= 0) {
+      // The blob goes; the account's PIN does not. Signing in again asks for
+      // the same PIN rather than making the owner choose a new one.
+      clearPin();
+      await createClient().auth.signOut();
+      leave();
+    }
+  }
+
+  function unlock() {
+    resetFailures();
+    clearLocked();
+    setBusy(false);
+    setLocked(false);
+  }
+
   async function submit(pin: string) {
     const blob = loadPin();
-    if (!blob) return;
-
     setBusy(true);
     setError(undefined);
 
+    const supabase = createClient();
+
+    // ── No blob: a fresh sign-in on this browser. Ask the server. ──────────
+    if (!blob) {
+      if (!pinSet) return; // nothing to prove against
+      const checked = await verifyPin(pin);
+      if (!checked.ok) {
+        await reject(checked.error === "Wrong PIN." ? undefined : checked.error);
+        return;
+      }
+
+      // Wrap the live session now, so this browser never needs the network to
+      // unlock again — and so a closed laptop holds no readable refresh token.
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.refresh_token) {
+        savePin(await wrapSession(pin, data.session.refresh_token, data.session.user.email ?? ""));
+      }
+      unlock();
+      return;
+    }
+
+    // ── Blob present: decrypting it is the proof, and needs no server. ─────
     const result = await unwrapSession(pin, blob);
 
     if (!result.ok) {
       if (result.reason === "expired") {
         clearPin();
-        await createClient().auth.signOut();
+        await supabase.auth.signOut();
         leave();
         return;
       }
-      const remaining = recordFailure();
-      setLeft(remaining);
-      setAttempt((n) => n + 1);
-      setBusy(false);
-      setError(
-        remaining > 0
-          ? `Wrong PIN. ${remaining} attempt${remaining === 1 ? "" : "s"} left.`
-          : "Too many attempts. Sign in again.",
-      );
-      if (remaining <= 0) {
-        await createClient().auth.signOut();
-        leave();
-      }
+      await reject();
       return;
     }
 
     // Re-establish the session from the decrypted refresh token, in case the
     // cookie expired while the tab was closed.
-    const supabase = createClient();
     const { data } = await supabase.auth.getSession();
     if (!data.session) {
       await supabase.auth.refreshSession({ refresh_token: result.refreshToken });
     }
 
-    resetFailures();
-    clearLocked();
-    setBusy(false);
-    setLocked(false);
+    unlock();
   }
 
   async function signOutFully() {

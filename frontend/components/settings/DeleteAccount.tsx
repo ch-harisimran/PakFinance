@@ -89,7 +89,7 @@ export function DeleteAccount({ email }: { email: string }) {
           Download a copy of everything first
         </a>
 
-        <form onSubmit={submitting(submit)} className="mt-5 flex flex-col gap-4">
+        <form method="post" onSubmit={submitting(submit)} className="mt-5 flex flex-col gap-4">
           <Field
             label={`Type ${email} to confirm`}
             name="confirm_email"

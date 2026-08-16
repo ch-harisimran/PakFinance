@@ -38,7 +38,7 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
 
   const { data } = await supabase
     .from("profiles")
-    .select("full_name,phone,avatar_url,notation,theme")
+    .select("full_name,phone,avatar_url,notation,theme,pin_set_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -53,6 +53,9 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
     notation: data?.notation === "subcontinental" ? "subcontinental" : "international",
     theme: data?.theme ?? "dark",
     lastSignInAt: user.last_sign_in_at ?? null,
+    // The salt and hash are not selectable by design (migration 0013); the
+    // timestamp is all the client needs and reveals nothing about the PIN.
+    pinSet: Boolean(data?.pin_set_at),
   };
 });
 

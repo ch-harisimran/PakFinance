@@ -26,6 +26,7 @@
     "schedule:report": "npm --prefix frontend run schedule:report",
     "backup": "npm --prefix frontend run backup --",
     "verify:ratelimit": "npm --prefix frontend run verify:ratelimit",
-    "db:migrate": "npm --prefix frontend run db:migrate"
+    "db:migrate": "npm --prefix frontend run db:migrate",
+    "verify:pin": "npm --prefix frontend run verify:pin"
   }
 }

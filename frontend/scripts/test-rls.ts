@@ -162,7 +162,19 @@ async function main() {
     const [, idB] = created;
 
     for (const table of USER_TABLES) {
-      const { data } = await b.from(table).select("*").limit(5);
+      /**
+       * `profiles` is asked for named columns, not `*`.
+       *
+       * Its PIN verifier has SELECT revoked at column level (migration 0014),
+       * and PostgREST expands `*` to every column — so a star query is refused
+       * for lack of privilege and returns nothing. That would read here as "no
+       * rows", i.e. as RLS passing, which is the wrong answer for the wrong
+       * reason. The verifier gets its own explicit check below.
+       */
+      const { data } =
+        table === "profiles"
+          ? await b.from(table).select("user_id,full_name,notation").limit(5)
+          : await b.from(table).select("*").limit(5);
       const rows = data ?? [];
 
       if (table === "profiles") {
@@ -191,10 +203,38 @@ async function main() {
       check(`user B cannot insert into ${table} as A`, !!forged);
     }
 
+    /**
+     * The PIN verifier must be unreadable even to its owner.
+     *
+     * RLS cannot help here: the threat is someone holding the signed-in user's
+     * own session on their unlocked machine, so every row-level rule says yes.
+     * Only the column grant stands in the way, and a six-digit PIN whose salt
+     * and hash leak is a space small enough to grind offline. `*` is checked
+     * too, because that is how the leak would actually happen — nobody asks for
+     * `pin_hash` by name, they just select everything.
+     */
+    for (const column of ["pin_hash", "pin_salt"]) {
+      const { error } = await b.from("profiles").select(column).limit(1);
+      check(`user B cannot read profiles.${column}`, !!error, "the query succeeded");
+    }
+    const { error: starError } = await b.from("profiles").select("*").limit(1);
+    check("select * on profiles is refused, not silently trimmed", !!starError);
+
+    // And cannot install one of their own choosing, which would turn the lock
+    // into one the attacker holds the key to.
+    const { error: forgedPin } = await b
+      .from("profiles")
+      .update({ pin_hash: "forged", pin_salt: "forged" })
+      .eq("user_id", idB);
+    check("user B cannot write their own PIN verifier", !!forgedPin);
+
     // Anonymous — no session at all — must see nothing anywhere, profiles
     // included: without a session there is no "own" row to be entitled to.
     for (const table of USER_TABLES) {
-      const { data } = await anon.from(table).select("*").limit(5);
+      const { data } =
+        table === "profiles"
+          ? await anon.from(table).select("user_id").limit(5)
+          : await anon.from(table).select("*").limit(5);
       check(`signed out, ${table} returns nothing`, (data ?? []).length === 0);
     }
   } finally {

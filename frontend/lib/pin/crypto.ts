@@ -21,10 +21,11 @@
 const ITERATIONS = 600_000;
 const KEY_LENGTH = 256;
 
-export const PIN_LENGTH = 6;
-export const MAX_ATTEMPTS = 5;
-/** How long a wrapped session stays usable before a full login is required. */
-export const PIN_VALID_DAYS = 5;
+// Re-exported so existing importers keep working; defined in a directive-free
+// module because the server actions need them too. See lib/pin/constants.ts.
+import { PIN_LENGTH, MAX_ATTEMPTS, PIN_VALID_DAYS } from "@/lib/pin/constants";
+
+export { PIN_LENGTH, MAX_ATTEMPTS, PIN_VALID_DAYS };
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();

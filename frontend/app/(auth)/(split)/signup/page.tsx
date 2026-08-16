@@ -6,7 +6,6 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { signUp, type ActionState } from "@/app/(auth)/actions";
-import { submitting } from "@/lib/form";
 
 /** Sign up — form on the RIGHT, interactive panel on the left. */
 export default function SignupPage() {
@@ -26,7 +25,7 @@ export default function SignupPage() {
         </>
       }
     >
-      <form onSubmit={submitting(action)} className="auth-form">
+      <form action={action} className="auth-form">
         <Field label="Full name" name="name" autoComplete="name" placeholder="Haris Khan" required />
         <Field
           label="Email"

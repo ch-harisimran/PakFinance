@@ -78,6 +78,15 @@ export const profiles = pgTable("profiles", {
   /** "international" | "subcontinental" — drives lib/money.ts formatting. */
   notation: text("notation").notNull().default("international"),
   theme: text("theme").notNull().default("dark"),
+  /**
+   * Quick-unlock PIN verifier. Server-side only — clients have SELECT and
+   * UPDATE revoked on the salt and hash (migration 0013), so the PIN can be set
+   * and checked but never read back or overwritten from a browser.
+   */
+  pinSalt: text("pin_salt"),
+  pinHash: text("pin_hash"),
+  /** Null means no PIN. Readable by the client, which only needs the boolean. */
+  pinSetAt: timestamp("pin_set_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

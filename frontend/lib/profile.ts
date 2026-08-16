@@ -20,6 +20,12 @@ export interface Profile {
   theme: string;
   /** From auth.users, for the "this session" panel. */
   lastSignInAt: string | null;
+  /**
+   * Whether a quick-unlock PIN exists for this ACCOUNT, not this browser. The
+   * lock screen needs it to tell "enter your PIN" from "set one up" after a
+   * fresh sign-in, when localStorage holds no wrapped session yet.
+   */
+  pinSet: boolean;
 }
 
 /** What to call someone when their name is missing: the local part of the email. */

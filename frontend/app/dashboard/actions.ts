@@ -93,20 +93,54 @@ async function applyUpdate(
 /**
  * `profiles` is keyed by `user_id`, not `id`, so it does not go through
  * `applyUpdate`. It is also the one table where the row is guaranteed to exist —
- * the `on_auth_user_created` trigger writes it — but upsert rather than update,
- * so a profile that somehow went missing repairs itself instead of silently
- * refusing to save.
+ * the `on_auth_user_created` trigger writes it.
  */
+
+/**
+ * Write fields onto the caller's own profile row.
+ *
+ * An UPDATE, falling back to an INSERT only when the row is genuinely absent.
+ * This used to be a single `upsert`, which PostgREST issues as
+ * `INSERT ... ON CONFLICT DO UPDATE` — and that needs privileges the client no
+ * longer holds: migration 0014 revoked table-wide INSERT so the PIN verifier
+ * could never be written from a browser, and per-column grants do not satisfy
+ * an upsert. Verified: plain UPDATE and plain INSERT both pass, upsert returns
+ * 42501.
+ *
+ * The two steps keep exactly what the upsert was there for — a profile that
+ * somehow went missing repairs itself rather than silently refusing to save.
+ */
+async function saveProfile(
+  supabase: Awaited<ReturnType<typeof withUser>>["supabase"],
+  userId: string,
+  fields: Record<string, string | null>,
+): Promise<{ error?: string }> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(fields)
+    .eq("user_id", userId)
+    .select("user_id");
+
+  if (error) return { error: error.message };
+  if ((data ?? []).length > 0) return {};
+
+  const { error: insertError } = await supabase
+    .from("profiles")
+    .insert({ user_id: userId, ...fields });
+  return insertError ? { error: insertError.message } : {};
+}
+
 export async function updateProfile(_prev: FormState, form: FormData): Promise<FormState> {
   try {
     const { supabase, userId } = await withUser();
     const fullName = str(form, "full_name");
     if (!fullName) return { error: "Your name can't be blank." };
 
-    const { error } = await supabase
-      .from("profiles")
-      .upsert({ user_id: userId, full_name: fullName, phone: str(form, "phone") || null });
-    if (error) return { error: error.message };
+    const { error } = await saveProfile(supabase, userId, {
+      full_name: fullName,
+      phone: str(form, "phone") || null,
+    });
+    if (error) return { error };
 
     // The name is also carried in the auth token's metadata, which is what the
     // app falls back to. Leaving it stale would make the header disagree with
@@ -128,10 +162,8 @@ export async function updatePreferences(_prev: FormState, form: FormData): Promi
       ? str(form, "theme")
       : "dark";
 
-    const { error } = await supabase
-      .from("profiles")
-      .upsert({ user_id: userId, notation, theme });
-    if (error) return { error: error.message };
+    const { error } = await saveProfile(supabase, userId, { notation, theme });
+    if (error) return { error };
 
     revalidatePath("/dashboard", "layout");
     return { ok: true };
@@ -260,8 +292,8 @@ export async function uploadAvatar(_prev: FormState, form: FormData): Promise<Fo
       data: { publicUrl },
     } = supabase.storage.from("avatars").getPublicUrl(path);
 
-    const { error } = await supabase.from("profiles").upsert({ user_id: userId, avatar_url: publicUrl });
-    if (error) return { error: error.message };
+    const { error } = await saveProfile(supabase, userId, { avatar_url: publicUrl });
+    if (error) return { error };
 
     // Sweep the previous photos. Without this every change leaves a file behind
     // that nothing references and nobody will ever look for.
@@ -287,8 +319,8 @@ export async function removeAvatar(): Promise<FormState> {
       await supabase.storage.from("avatars").remove(existing.map((f) => `${userId}/${f.name}`));
     }
 
-    const { error } = await supabase.from("profiles").upsert({ user_id: userId, avatar_url: null });
-    if (error) return { error: error.message };
+    const { error } = await saveProfile(supabase, userId, { avatar_url: null });
+    if (error) return { error };
 
     revalidatePath("/dashboard", "layout");
     return { ok: true };

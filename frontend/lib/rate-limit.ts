@@ -57,6 +57,13 @@ export const RULES = {
   otpResend: { limit: 4, windowSeconds: 60 * 60, blockSeconds: 60 * 60 },
   passwordReset: { limit: 4, windowSeconds: 60 * 60, blockSeconds: 60 * 60 },
   passwordChange: { limit: 6, windowSeconds: 15 * 60, blockSeconds: 15 * 60 },
+  /**
+   * Six digits is a 10^6 space, so the server check is the only thing standing
+   * between a scripted client and the whole of it. Tighter than the others
+   * because a legitimate user gets five tries in the lock screen before it gives
+   * up and asks for a full sign-in anyway.
+   */
+  pinVerify: { limit: 10, windowSeconds: 15 * 60, blockSeconds: 30 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RuleName = keyof typeof RULES;

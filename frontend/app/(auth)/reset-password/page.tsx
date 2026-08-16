@@ -8,7 +8,6 @@ import { OtpOrbit } from "@/components/auth/OtpOrbit";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { verifyRecovery, setNewPassword, type ActionState } from "@/app/(auth)/actions";
-import { submitting } from "@/lib/form";
 
 /**
  * Password reset — step two.
@@ -88,7 +87,7 @@ function Reset() {
             Pick something you haven&rsquo;t used here before.
           </p>
 
-          <form onSubmit={submitting(save)} className="flex flex-col gap-4 text-left">
+          <form action={save} className="flex flex-col gap-4 text-left">
             <Field
               label="New password"
               name="password"

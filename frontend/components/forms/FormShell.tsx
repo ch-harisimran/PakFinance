@@ -61,7 +61,7 @@ export function FormShell({
 
   return (
     <Modal open={open} onClose={close} title={title} description={description}>
-      <form onSubmit={submitting(submit)} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submitting(submit)} className="flex flex-col gap-4">
         {children}
 
         {error && (
