@@ -143,11 +143,28 @@ export async function fetchNavReport(): Promise<NavRow[]> {
   if (!url) throw new Error("MUFAP_NAV_URL is not set");
 
   const res = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "text/html" },
+    headers: {
+      "User-Agent": UA,
+      // Ordinary content negotiation, not disguise — we still identify as
+      // PakFinance. Some origins reject requests that state no preferences.
+      Accept: "text/html,application/xhtml+xml",
+      "Accept-Language": "en",
+    },
     signal: AbortSignal.timeout(30_000),
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`MUFAP → ${res.status}`);
+
+  if (!res.ok) {
+    // A bare status is not enough to act on. 403 from a Cloudflare-fronted
+    // origin usually means the edge rejected us on IP reputation or UA, and the
+    // ray id is what identifies the block if MUFAP is ever asked about it.
+    const ray = res.headers.get("cf-ray");
+    const server = res.headers.get("server");
+    const body = (await res.text().catch(() => "")).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    throw new Error(
+      `MUFAP → ${res.status}${server ? ` via ${server}` : ""}${ray ? ` (cf-ray ${ray})` : ""}: ${body.slice(0, 160)}`,
+    );
+  }
 
   const rows = parseNavReport(await res.text());
   if (!rows.length) throw new Error("MUFAP report parsed to zero rows");

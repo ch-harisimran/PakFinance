@@ -13,7 +13,8 @@
         "db:studio": "drizzle-kit studio",
         "sync:psx": "tsx scripts/sync-psx.ts",
         "backfill": "tsx scripts/backfill-eod.ts",
-        "sync:nav": "tsx scripts/sync-nav.ts"
+        "sync:nav": "tsx scripts/sync-nav.ts",
+        "snapshot": "tsx scripts/snapshot.ts"
     },
     "dependencies": {
         "@gsap/react": "^2.1.2",

@@ -1,16 +1,24 @@
 name: MUFAP NAV sync
 
-# NAVs are published once a day after the close, so unlike PSX there are no
-# trading sessions to respect — the only guard is "have we already got today's
-# report" (12 hours, in lib/market/sync-nav.ts).
+# SCHEDULE DISABLED — this cannot currently succeed.
 #
-# Two runs, because MUFAP does not publish at a fixed time:
-#   14:00 UTC = 19:00 PKT   first attempt
-#   16:30 UTC = 21:30 PKT   retry, no-ops if the first one succeeded
+# MUFAP sits behind a Cloudflare JavaScript challenge. A server-side fetch gets
+# the "Just a moment…" interstitial, not the report, and it fails identically
+# from a residential connection and from a GitHub runner — so it is not IP
+# reputation and not the User-Agent. Passing the challenge would mean defeating
+# a deliberate anti-automation measure, which this project does not do.
+#
+# Until MUFAP offers a feed or allowlists a client, NAVs are ingested from a
+# report saved in a browser:
+#
+#   npm --prefix frontend run sync:nav -- --file
+#
+# Kept as manual-dispatch only so a scheduled run does not fail nightly. To
+# re-enable once access exists, restore:
+#   schedule:
+#     - cron: "0 14 * * 1-5"
+#     - cron: "30 16 * * 1-5"
 on:
-  schedule:
-    - cron: "0 14 * * 1-5"
-    - cron: "30 16 * * 1-5"
   workflow_dispatch:
     inputs:
       force:

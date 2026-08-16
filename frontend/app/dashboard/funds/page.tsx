@@ -7,7 +7,7 @@ import { TypeBadge } from "@/components/dashboard/TypeBadge";
 import { AddFundOrder } from "@/components/forms/FundOrderForm";
 import { getFundOrders, getFundMeta, getOfficialNavs } from "@/lib/queries-funds";
 import { buildFundPositions, valueFunds } from "@/lib/market/fund-holdings";
-import { CHART } from "@/lib/dashboard-data";
+import { CHART } from "@/lib/chart";
 import { paisaFull, paisaCompact, formatPct, formatFull } from "@/lib/money";
 
 /**

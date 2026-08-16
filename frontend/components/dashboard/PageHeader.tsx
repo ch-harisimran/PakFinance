@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { Plus, Search } from "lucide-react";
 import { FreshnessChip } from "@/components/dashboard/Panel";
-import type { Freshness } from "@/lib/dashboard-data";
+import type { Freshness } from "@/lib/chart";
 
 /**
  * Screen header. The primary action lives here, on the screen that owns the

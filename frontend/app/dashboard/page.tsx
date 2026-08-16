@@ -1,16 +1,16 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { NetWorthHero } from "@/components/dashboard/NetWorthHero";
 import { BalanceSheet } from "@/components/dashboard/BalanceSheet";
 import { Attention } from "@/components/dashboard/Attention";
 import {
-  Holdings,
+  HoldingsPanel,
   FundsPanel,
-  CashFlow,
-  Expenses,
-  Transactions,
+  CashFlowPanel,
+  ExpensesPanel,
+  TransactionsPanel,
   GoalsPanel,
 } from "@/components/dashboard/Panels";
-import { MARKET_OPEN } from "@/lib/dashboard-data";
+import { getDashboard, getNetWorthSeries, currentUserId } from "@/lib/queries-networth";
+import { getMarketState } from "@/lib/market/sessions";
 
 /**
  * Three zones with deliberately unequal weight:
@@ -19,79 +19,97 @@ import { MARKET_OPEN } from "@/lib/dashboard-data";
  *   2  what needs you  the only things here with a deadline
  *   3  the detail      holdings, funds, flows — denser, lower contrast
  *
- * The reference laid fourteen cards out at identical weight, so nothing led.
+ * One round of fetching happens here and values are passed down, rather than
+ * each card issuing its own queries and multiplying round trips.
  */
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const userId = await currentUserId();
+  const [data, series, market] = await Promise.all([
+    getDashboard(),
+    userId ? getNetWorthSeries(userId) : Promise.resolve([]),
+    getMarketState(),
+  ]);
+
+  const { breakdown, flow, loans, goals, holdings, positions, fundMeta, txns, accounts, invested } = data;
+
+  // Last six calendar months of flow, oldest first.
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    const label = d.toLocaleDateString("en-GB", { month: "short" });
+    const inMonth = txns.filter((t) => {
+      const td = new Date(t.occurred_at);
+      return td.getFullYear() === d.getFullYear() && td.getMonth() === d.getMonth();
+    });
+    return {
+      m: label,
+      income: inMonth.filter((t) => t.amount_paisa > 0).reduce((s, t) => s + t.amount_paisa, 0),
+      expenses: inMonth.filter((t) => t.amount_paisa < 0).reduce((s, t) => s + Math.abs(t.amount_paisa), 0),
+    };
+  }).filter((m) => m.income > 0 || m.expenses > 0);
+
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Karachi", hour: "2-digit", hour12: false }).format(
+      new Date(),
+    ),
+  );
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
   return (
     <div className="flex-1 px-5 py-6 sm:px-6">
-      {/* Greeting + period control */}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2
-            className="text-[clamp(1.5rem,2.4vw,2rem)] leading-tight tracking-[-0.02em]"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Good evening, Haris
-          </h2>
-          <p className="mt-1.5 text-[13.5px]" style={{ color: "var(--text-muted)" }}>
-            {MARKET_OPEN ? "PSX is open · closes 15:30 PKT" : "PSX is closed · reopens 09:32 PKT"}
-          </p>
-        </div>
-
-        {/*
-          Governs the flow cards only — cash flow and expenses. Balances are
-          "as of now" and carry their own stamp, because asking what your net
-          worth was *for* August is not a question with an answer.
-        */}
-        <div className="flex items-center gap-3">
-          <span
-            className="hidden text-[11px] uppercase tracking-[0.12em] sm:block"
-            style={{ fontFamily: "var(--font-mono)", color: "var(--text-faint)" }}
-          >
-            Cash flow period
-          </span>
-          <div
-            className="flex items-center gap-1 rounded-[10px] border p-1"
-            style={{ borderColor: "var(--border-subtle)" }}
-          >
-            <button
-              aria-label="Previous month"
-              className="grid h-7 w-7 place-items-center rounded-[7px] transition-colors duration-200 hover:bg-[var(--surface-2)]"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <ChevronLeft size={14} strokeWidth={1.8} />
-            </button>
-            <span className="px-2 text-[13px] font-medium">August 2026</span>
-            <button
-              aria-label="Next month"
-              className="grid h-7 w-7 place-items-center rounded-[7px] transition-colors duration-200 hover:bg-[var(--surface-2)]"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <ChevronRight size={14} strokeWidth={1.8} />
-            </button>
-          </div>
-        </div>
+      <div className="mb-6">
+        <h2
+          className="text-[clamp(1.5rem,2.4vw,2rem)] leading-tight tracking-[-0.02em]"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          {greeting}
+        </h2>
+        <p className="mt-1.5 text-[13.5px]" style={{ color: "var(--text-muted)" }}>
+          {market.open
+            ? `PSX is open · closes ${market.reason === "open" ? "15:30" : ""} PKT`
+            : market.reason === "holiday"
+              ? `PSX is closed · ${market.detail}`
+              : "PSX is closed"}
+        </p>
       </div>
 
       {/* Zone 1 — the answer */}
       <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
-        <NetWorthHero />
-        <BalanceSheet />
+        <NetWorthHero netPaisa={breakdown.netPaisa} series={series} />
+        <BalanceSheet breakdown={breakdown} loans={loans} />
       </div>
 
       {/* Zone 2 — what needs you */}
       <div className="mb-5">
-        <Attention />
+        <Attention
+          loans={loans}
+          goals={goals}
+          counts={{
+            accounts: accounts.length,
+            trades: holdings.length,
+            funds: positions.length,
+            goals: goals.length,
+          }}
+        />
       </div>
 
       {/* Zone 3 — the detail */}
       <div className="grid gap-5 xl:grid-cols-3">
-        <Holdings />
-        <FundsPanel />
-        <CashFlow />
-        <Expenses />
-        <Transactions />
-        <GoalsPanel />
+        <HoldingsPanel
+          holdings={holdings}
+          valuePaisa={breakdown.psxPaisa}
+          costPaisa={invested.psxPaisa}
+        />
+        <FundsPanel positions={positions} meta={fundMeta} valuePaisa={breakdown.fundsPaisa} />
+        <CashFlowPanel
+          months={months}
+          incomePaisa={flow.incomePaisa}
+          expensesPaisa={flow.expensesPaisa}
+          netPaisa={flow.netPaisa}
+        />
+        <ExpensesPanel categories={flow.categories} expensesPaisa={flow.expensesPaisa} />
+        <TransactionsPanel txns={txns} />
+        <GoalsPanel goals={goals} />
       </div>
     </div>
   );

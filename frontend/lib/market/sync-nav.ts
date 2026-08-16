@@ -1,7 +1,7 @@
 import { and, desc, eq, sql as raw } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { fundNavs, funds, syncRuns } from "@/lib/db/schema/market";
-import { deriveAmc, fetchNavReport, type NavRow } from "@/lib/market/mufap";
+import { deriveAmc, fetchNavReport, parseNavReport, type NavRow } from "@/lib/market/mufap";
 
 /**
  * MUFAP NAV sync.
@@ -23,8 +23,30 @@ export type NavSyncResult =
   | { action: "skipped"; reason: string; detail?: string }
   | { action: "synced"; funds: number; navs: number; newFunds: number; latest: string };
 
-export async function runNavSync({ force = false } = {}): Promise<NavSyncResult> {
-  if (!force) {
+export async function runNavSync({
+  force = false,
+  html,
+}: {
+  force?: boolean;
+  /**
+   * Pre-fetched report HTML, bypassing the network entirely.
+   *
+   * MUFAP sits behind a Cloudflare JavaScript challenge, so no server-side
+   * fetch can reach it — the response is an interstitial, not the report. The
+   * supported path is therefore a file you saved from your own browser, which
+   * this ingests through exactly the same parser and upserts.
+   */
+  html?: string;
+} = {}): Promise<NavSyncResult> {
+  /**
+   * The interval guard only applies to network syncs.
+   *
+   * Its whole purpose is to avoid re-requesting MUFAP's report. When `html` is
+   * supplied there is no request to throttle — someone has deliberately saved a
+   * file and asked for it to be ingested, and refusing that is obstruction
+   * rather than protection.
+   */
+  if (!force && !html) {
     const [last] = await db
       .select({ startedAt: syncRuns.startedAt })
       .from(syncRuns)
@@ -56,7 +78,8 @@ export async function runNavSync({ force = false } = {}): Promise<NavSyncResult>
     .returning({ id: syncRuns.id });
 
   try {
-    const rows = await fetchNavReport();
+    const rows = html ? parseNavReport(html) : await fetchNavReport();
+    if (!rows.length) throw new Error("report parsed to zero rows");
     const before = await db.select({ n: raw<number>`count(*)::int` }).from(funds);
 
     await upsertFunds(rows);

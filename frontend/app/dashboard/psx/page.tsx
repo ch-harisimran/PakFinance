@@ -14,7 +14,7 @@ import {
   getPriceAsOf,
 } from "@/lib/queries-psx";
 import { buildHoldings, valueHoldings, portfolioSeries } from "@/lib/market/holdings";
-import { CHART } from "@/lib/dashboard-data";
+import { CHART } from "@/lib/chart";
 import { paisaFull, formatPct, paisaCompact } from "@/lib/money";
 
 /**

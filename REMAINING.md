@@ -40,10 +40,16 @@ button. A user who fat-fingers a trade is stuck with it.
 
 ## 2. Data layer gaps
 
-### 2.1 Net worth snapshot job
-`public.net_worth_daily` exists and nothing writes to it. Needed for the
-dashboard's net-worth curve to be real rather than recomputed per request.
-Wants `/api/cron/snapshot` plus a workflow entry.
+### 2.1 Net worth snapshot job — DONE
+`lib/market/snapshot.ts` computes every user's assets and liabilities and
+upserts `public.net_worth_daily`. Reachable as `scripts/snapshot.ts`,
+`/api/cron/snapshot`, and `.github/workflows/snapshot.yml` (13:30 UTC daily,
+with a 14:30 retry that no-ops if the first run succeeded).
+
+The chart still has exactly one point, and will only ever have one point per day
+from here — the series cannot be backfilled, because bank balances and NAVs are
+not recoverable after the fact. The workflow going live is what starts the
+clock, so §2.2 gates the value of this one.
 
 ### 2.2 GitHub Actions not live
 `.github/workflows/sync-psx.yml` is written and correct, but:
@@ -119,23 +125,33 @@ regression guard.
 No phone testing. No Lighthouse run. No accessibility pass. The landing page has
 heavy scroll choreography that has only ever run on one desktop browser.
 
-### 4.5 Legal pages are dead links
+### 4.5 The dashboard is one query away from hanging
+Drizzle's postgres-js driver never resumes queries it queues beyond the client's
+`max` (5) — they hang silently, forever. `app/dashboard/page.tsx` currently runs
+exactly 5 concurrent Drizzle reads. It works, but there is no headroom: adding
+one more concurrent read to that page hangs it with no error. Documented at
+length in `lib/db/client.ts`. Worth either sequencing that fan-out or checking
+whether a newer drizzle-orm than 0.45.2 fixes the queueing.
+
+### 4.6 Legal pages are dead links
 Terms and Privacy are linked from signup and the footer and point at `#`.
 
 ---
 
 ## 5. Suggested order
 
-1. **Dashboard overview off fixtures** — biggest visible lie in the product
-2. **Edit and delete** — data entry without correction is a trap
-3. **Settings persistence** — profile, notation, theme
-4. **Push + GitHub secrets** so prices maintain themselves
-5. **Net worth snapshot job**
+1. ~~Dashboard overview off fixtures~~ — done
+2. ~~Net worth snapshot job~~ — done
+3. **Push + GitHub secrets** so prices and snapshots maintain themselves. This
+   moved up: every day the snapshot workflow is not live is a day permanently
+   missing from the net-worth chart.
+4. **Edit and delete** — data entry without correction is a trap
+5. **Settings persistence** — profile, notation, theme
 6. **Tests** for holdings and money
 7. **Domain + deploy**
-8. **MUFAP**, when you can save the page
+8. **MUFAP** automation, when the Cloudflare challenge can be dealt with
 9. Sector names, index column, holidays, pruning
 10. Search, theme, reports
 
-Steps 1–3 finish the "remove the mock data" goal. Step 7 is what turns it from a
+Steps 4–5 finish the "remove the mock data" goal. Step 7 is what turns it from a
 local project into something another person can use.

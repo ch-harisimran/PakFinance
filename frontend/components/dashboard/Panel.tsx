@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Freshness } from "@/lib/dashboard-data";
+import type { Freshness } from "@/lib/chart";
 
 /**
  * Every dashboard card. The freshness chip is a first-class part of the header

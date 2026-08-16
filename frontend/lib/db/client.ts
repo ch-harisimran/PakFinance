@@ -29,6 +29,29 @@ const client = postgres(connectionString, {
   idle_timeout: 20,
 });
 
+/**
+ * NEVER await more than `max` (5) Drizzle queries concurrently on this client.
+ *
+ * Drizzle's postgres-js driver does not resume queries it queues once the pool
+ * has an open connection: fire eight at once through `Promise.all` and exactly
+ * five resolve while the other three hang forever — no error, no timeout, and
+ * nothing in `pg_stat_activity` to show for it, because the connections are
+ * sitting idle server-side while the client waits on them. Raw postgres.js
+ * queues twenty on a pool of five without complaint, so this is the ORM's bug,
+ * not a pool limit, and widening `max` only moves the cliff.
+ *
+ * Current widest fan-outs, for whoever adds the next one:
+ *   app/dashboard/page.tsx    5  (3 in getDashboard's second wave + net worth
+ *                                 series + market state) — AT THE LIMIT
+ *   app/dashboard/psx/page.tsx 4
+ *
+ * The dashboard has no headroom. Adding one more concurrent Drizzle read to it
+ * will hang the page. Sequence them, or batch in groups of four.
+ *
+ * Note this counts Drizzle queries only — the user-facing reads in
+ * lib/queries.ts go through Supabase over HTTP and are unaffected.
+ */
+
 export const db = drizzle(client, { schema: { ...market } });
 
 export { market };
