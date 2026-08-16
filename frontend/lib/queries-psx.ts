@@ -19,6 +19,10 @@ import type { Trade } from "@/lib/market/holdings";
 export interface TradeRow extends Trade {
   id: string;
   name: string | null;
+  /** Kept apart from the combined `chargesPaisa` so the edit form can round-trip
+   *  the two fields the user actually typed. */
+  commissionPaisa: number;
+  otherChargesPaisa: number;
 }
 
 export async function getTrades(): Promise<TradeRow[]> {
@@ -35,6 +39,8 @@ export async function getTrades(): Promise<TradeRow[]> {
     type: r.type as Trade["type"],
     quantity: Number(r.quantity),
     pricePaisa: Number(r.price_paisa),
+    commissionPaisa: Number(r.commission_paisa ?? 0),
+    otherChargesPaisa: Number(r.other_charges_paisa ?? 0),
     chargesPaisa: Number(r.commission_paisa ?? 0) + Number(r.other_charges_paisa ?? 0),
     tradedAt: String(r.traded_at),
   }));

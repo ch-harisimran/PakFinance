@@ -27,14 +27,38 @@ No MUFAP provider, no sync, no data. `market.funds` and `market.fund_navs` are
 empty. Blocked on a saved copy of the MUFAP NAV page — their robots.txt
 disallows ClaudeBot, so the fetch has to come from you.
 
-### 1.3 Settings saves nothing
-Profile fields, password change, notation, theme and notification switches are
-all local component state. Nothing writes to `profiles`. Reload and it's gone.
+### 1.3 Settings saves nothing — DONE
+Profile name and phone save to `profiles`; the password change verifies the
+current password before setting the new one; number notation persists. The photo
+uploads to a Supabase Storage bucket (migration `0006_avatars_bucket.sql`) under
+`avatars/<user id>/`, and old files are swept on replace. Export as CSV or JSON
+works via `/api/export`.
 
-### 1.4 Records can be created but not edited or deleted
-`deleteRow` exists as an action with an allowlist; no UI calls it. There is no
-edit path for any record, and `updateAccountBalance` has an action but no
-button. A user who fat-fingers a trade is stuck with it.
+Three controls were removed rather than wired, because nothing behind them
+existed and a control that lies is worse than an absent one:
+
+- **Two-factor switch.** Toggled nothing. What protects the account — a verified
+  email at sign-up and the PIN lock — is now stated instead.
+- **Theme switcher.** `design/tokens.css` has one palette, so Light and System
+  changed nothing. See §4.7.
+- **Notification switches.** No email or push delivery exists. Alerts now appear
+  in the bell, which is real; the copy says so.
+
+Still local: the notation preference is stored but only applied to the sample on
+the settings screen. Applying it across every screen is §3.x below.
+
+### 1.4 Records can be created but not edited or deleted — DONE
+Every record type now has a row menu (`components/dashboard/RowActions.tsx`)
+with Edit and a confirmed Delete: accounts, transactions, loans, loan payments,
+goals, contributions, PSX trades and fund orders.
+
+Each type defines its fields once, as a `*Fields` component that both the Add
+dialog and the Edit dialog render, so the two cannot drift apart.
+
+Two deliberate limits: the fund on an existing order cannot be changed (moving
+units between funds would corrupt both positions' cost basis — delete and
+re-enter), and the dashboard overview stays read-only, since it is a read
+surface and the records are owned by their own screens.
 
 ---
 
@@ -50,6 +74,22 @@ The chart still has exactly one point, and will only ever have one point per day
 from here — the series cannot be backfilled, because bank balances and NAVs are
 not recoverable after the fact. The workflow going live is what starts the
 clock, so §2.2 gates the value of this one.
+
+### 2.4 Loan repayment reminders — DONE
+A loan can be repaid monthly (`due_day`) or in one go (`due_date`, new), and
+either can carry a reminder with 0/1/3/7 days of notice. `lib/notify/reminders.ts`
+runs daily at 03:30 UTC (08:30 PKT) via `.github/workflows/reminders.yml` and
+emails through Brevo's HTTP API.
+
+Sending is idempotent: `loan_reminders_sent` is keyed on (loan, repayment date,
+channel) with a unique index, so a retried workflow, an overlapping cron and a
+manual run collapse to one email. The row is written *after* a successful send —
+failing toward a possible duplicate tomorrow rather than a silent miss. Only the
+job writes that table; clients get SELECT and nothing else, so nobody can forge
+an "already sent" row to silence their own reminders.
+
+The date arithmetic is pure and covered by `scripts/verify-due-dates.ts`
+(26 checks, including a loan due on the 31st landing on 28/29 February).
 
 ### 2.2 GitHub Actions not live
 `.github/workflows/sync-psx.yml` is written and correct, but:
@@ -133,7 +173,27 @@ one more concurrent read to that page hangs it with no error. Documented at
 length in `lib/db/client.ts`. Worth either sequencing that fan-out or checking
 whether a newer drizzle-orm than 0.45.2 fixes the queueing.
 
-### 4.6 Legal pages are dead links
+### 4.6 Decided against, or still worth building
+- **Light theme — decided against.** Not a palette swap: the design language is
+  brass-on-ink with glow shadows, and the landing page's scroll choreography
+  transitions between four named ground colours. It is a second design system.
+  The `profiles.theme` column stays, so this is not a one-way door.
+- **Two-factor switch — removed.** Toggled nothing.
+- **Price alerts — removed** at the owner's request. Not wanted.
+- **Delete account.** Every table cascades from `auth.users`, so the data side is
+  one delete — but removing the auth user needs a service-role key, which this
+  build does not hold. The button is disabled with that stated.
+- **Change email.** Supabase requires confirmation from both addresses; it is a
+  flow, not a field. The input is disabled with a hint.
+
+### 4.7 Loan reminders — DONE, but not yet deliverable
+Per-loan email reminders ship (§2.4). They will not actually arrive until
+`BREVO_API_KEY` and `BREVO_SENDER` are set AND the sender is at a domain you own
+with SPF/DKIM/DMARC configured. A `@gmail.com` sender fails DMARC alignment and
+lands in spam — the same limitation as the OTP mail. The domain is the blocker,
+not the code.
+
+### 4.8 Legal pages are dead links
 Terms and Privacy are linked from signup and the footer and point at `#`.
 
 ---
@@ -145,13 +205,14 @@ Terms and Privacy are linked from signup and the footer and point at `#`.
 3. **Push + GitHub secrets** so prices and snapshots maintain themselves. This
    moved up: every day the snapshot workflow is not live is a day permanently
    missing from the net-worth chart.
-4. **Edit and delete** — data entry without correction is a trap
-5. **Settings persistence** — profile, notation, theme
+4. ~~Edit and delete~~ — done
+5. ~~Settings persistence~~ — done
 6. **Tests** for holdings and money
 7. **Domain + deploy**
 8. **MUFAP** automation, when the Cloudflare challenge can be dealt with
 9. Sector names, index column, holidays, pruning
 10. Search, theme, reports
 
-Steps 4–5 finish the "remove the mock data" goal. Step 7 is what turns it from a
+The "remove the mock data" goal is met: nothing in the dashboard is invented any
+more. Step 7 is what turns it from a
 local project into something another person can use.

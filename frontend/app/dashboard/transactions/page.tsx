@@ -3,7 +3,9 @@ import { PageHeader, StatRow } from "@/components/dashboard/PageHeader";
 import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TransactionList, ExpenseBars } from "@/components/dashboard/TransactionList";
-import { LogTransaction } from "@/components/forms/EntryForms";
+import { RowActions } from "@/components/dashboard/RowActions";
+import { LogTransaction, TransactionFields } from "@/components/forms/EntryForms";
+import { updateTransaction } from "@/app/dashboard/actions";
 import { getAccounts, getTransactions, cashFlow } from "@/lib/queries";
 import { paisaFull } from "@/lib/money";
 
@@ -56,9 +58,21 @@ export default async function TransactionsPage() {
               <TransactionList
                 withIcon
                 items={txns.map((t) => ({
+                  id: t.id,
                   label: t.label,
                   meta: `${t.category ?? "Uncategorised"} · ${new Date(t.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
                   amount: t.amount_paisa / 100,
+                  actions: (
+                    <RowActions
+                      table="transactions"
+                      id={t.id}
+                      name={t.label}
+                      editTitle="Edit transaction"
+                      action={updateTransaction}
+                    >
+                      <TransactionFields accounts={accounts} initial={t} />
+                    </RowActions>
+                  ),
                 }))}
               />
             </Panel>

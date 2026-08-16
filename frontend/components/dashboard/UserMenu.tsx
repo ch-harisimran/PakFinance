@@ -2,17 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
+import { displayName, initialsOf, type Profile } from "@/lib/profile";
 
 /**
  * Account menu. Takes the slot the global Add button used to occupy — Add is
  * meaningless without a context, so it now lives on the screens that own a
  * record type (holdings, funds, accounts, loans, goals).
+ *
+ * The profile is passed down from the layout rather than fetched here: this is a
+ * client component for the dropdown behaviour alone, and a client component has
+ * no business holding a session.
  */
-export function UserMenu() {
+export function UserMenu({ profile }: { profile: Profile | null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const name = profile ? displayName(profile) : "Your account";
+  const initials = profile ? initialsOf(profile) : "?";
 
   useEffect(() => {
     if (!open) return;
@@ -40,13 +49,26 @@ export function UserMenu() {
           backgroundColor: open ? "var(--surface-2)" : "transparent",
         }}
       >
-        <span
-          className="grid h-7 w-7 flex-none place-items-center rounded-full text-[11.5px] font-semibold"
-          style={{ backgroundColor: "var(--surface-3)" }}
-        >
-          HK
+        {profile?.avatarUrl ? (
+          <Image
+            src={profile.avatarUrl}
+            alt=""
+            width={28}
+            height={28}
+            className="h-7 w-7 flex-none rounded-full object-cover"
+            unoptimized
+          />
+        ) : (
+          <span
+            className="grid h-7 w-7 flex-none place-items-center rounded-full text-[11.5px] font-semibold"
+            style={{ backgroundColor: "var(--surface-3)" }}
+          >
+            {initials}
+          </span>
+        )}
+        <span className="hidden max-w-[160px] truncate text-[13px] font-medium sm:block">
+          {name}
         </span>
-        <span className="hidden text-[13px] font-medium sm:block">Haris Khan</span>
         <ChevronDown
           size={14}
           strokeWidth={1.8}
@@ -69,9 +91,9 @@ export function UserMenu() {
           }}
         >
           <div className="border-b px-4 py-3.5" style={{ borderColor: "var(--border-subtle)" }}>
-            <div className="text-[13.5px] font-medium">Haris Khan</div>
+            <div className="truncate text-[13.5px] font-medium">{name}</div>
             <div className="mt-0.5 truncate text-[11.5px]" style={{ color: "var(--text-faint)" }}>
-              haris@example.com
+              {profile?.email ?? "Not signed in"}
             </div>
           </div>
 

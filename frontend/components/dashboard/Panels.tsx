@@ -250,6 +250,7 @@ export function TransactionsPanel({ txns }: { txns: TransactionRow[] }) {
       {txns.length ? (
         <TransactionList
           items={txns.slice(0, 5).map((t) => ({
+            id: t.id,
             label: t.label,
             meta: `${t.category ?? "Uncategorised"} · ${new Date(t.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
             amount: t.amount_paisa / 100,

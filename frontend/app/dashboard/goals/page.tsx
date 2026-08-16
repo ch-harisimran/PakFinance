@@ -2,7 +2,14 @@ import { Target } from "lucide-react";
 import { PageHeader, StatRow } from "@/components/dashboard/PageHeader";
 import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
-import { AddGoal, AddContribution } from "@/components/forms/EntryForms";
+import { RowActions } from "@/components/dashboard/RowActions";
+import {
+  AddGoal,
+  AddContribution,
+  GoalFields,
+  ContributionFields,
+} from "@/components/forms/EntryForms";
+import { updateGoal, updateContribution } from "@/app/dashboard/actions";
 import { getGoals, goalProgress } from "@/lib/queries";
 import { paisaCompact, paisaFull } from "@/lib/money";
 
@@ -61,7 +68,27 @@ export default async function GoalsPage() {
             {rows.map((g) => {
               const tone = g.onTrack ? "var(--color-brass)" : "var(--color-warning)";
               return (
-                <section key={g.id} className="card flex flex-col items-center p-6 text-center">
+                <section key={g.id} className="card relative flex flex-col items-center p-6 text-center">
+                  {/* The card is centre-aligned with no header bar, so the menu
+                      is pinned to the corner rather than sharing a row. */}
+                  <div className="absolute right-3 top-3">
+                    <RowActions
+                      table="goals"
+                      id={g.id}
+                      name={g.name}
+                      consequence={
+                        g.goal_contributions.length
+                          ? `Its ${g.goal_contributions.length} contribution${g.goal_contributions.length === 1 ? "" : "s"} will be deleted too.`
+                          : undefined
+                      }
+                      editTitle="Edit goal"
+                      editDescription="Progress is the sum of your contributions, so it re-derives itself."
+                      action={updateGoal}
+                    >
+                      <GoalFields initial={g} />
+                    </RowActions>
+                  </div>
+
                   <div className="relative">
                     <svg viewBox="0 0 120 120" className="h-[132px] w-[132px] -rotate-90">
                       <circle cx="60" cy="60" r={R} fill="none" strokeWidth="8" stroke="var(--surface-3)" />
@@ -120,14 +147,12 @@ export default async function GoalsPage() {
           </div>
 
           <Panel title="Contributions" subtitle="Recent transfers into your goals" bodyClassName="p-0">
-            {rows.flatMap((g) =>
-              g.goal_contributions.map((c, i) => ({ ...c, goal: g.name, key: `${g.id}-${i}` })),
-            )
+            {rows.flatMap((g) => g.goal_contributions.map((c) => ({ ...c, goal: g.name })))
               .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at))
               .slice(0, 12)
               .map((c) => (
                 <div
-                  key={c.key}
+                  key={c.id}
                   className="flex items-center justify-between gap-4 border-b px-5 py-3.5 last:border-b-0"
                   style={{ borderColor: "var(--border-subtle)" }}
                 >
@@ -137,13 +162,25 @@ export default async function GoalsPage() {
                       {c.occurred_at}
                     </div>
                   </div>
-                  <span
-                    className="flex-none text-[13.5px] font-semibold"
-                    style={{ color: "var(--color-gain)" }}
-                    data-numeric
-                  >
-                    +{paisaFull(c.amount_paisa)}
-                  </span>
+                  <div className="flex flex-none items-center gap-1.5">
+                    <span
+                      className="text-[13.5px] font-semibold"
+                      style={{ color: "var(--color-gain)" }}
+                      data-numeric
+                    >
+                      +{paisaFull(c.amount_paisa)}
+                    </span>
+                    <RowActions
+                      table="goal_contributions"
+                      id={c.id}
+                      name={`${paisaFull(c.amount_paisa)} added on ${c.occurred_at}`}
+                      consequence="The goal's progress will drop by that amount."
+                      editTitle="Edit contribution"
+                      action={updateContribution}
+                    >
+                      <ContributionFields initial={c} />
+                    </RowActions>
+                  </div>
                 </div>
               ))}
             {rows.every((g) => g.goal_contributions.length === 0) && (

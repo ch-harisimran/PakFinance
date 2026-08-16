@@ -4,7 +4,9 @@ import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Breakdown } from "@/components/dashboard/Breakdown";
 import { TypeBadge } from "@/components/dashboard/TypeBadge";
-import { AddFundOrder } from "@/components/forms/FundOrderForm";
+import { AddFundOrder, FundOrderFields } from "@/components/forms/FundOrderForm";
+import { RowActions } from "@/components/dashboard/RowActions";
+import { updateFundOrder } from "@/app/dashboard/actions";
 import { getFundOrders, getFundMeta, getOfficialNavs } from "@/lib/queries-funds";
 import { buildFundPositions, valueFunds } from "@/lib/market/fund-holdings";
 import { CHART } from "@/lib/chart";
@@ -216,9 +218,22 @@ export default async function FundsPage() {
                   </div>
                 </div>
               </div>
-              <span className="flex-none text-[13.5px] font-semibold" data-numeric>
-                {o.amountPaisa > 0 ? paisaCompact(o.amountPaisa) : "—"}
-              </span>
+              <div className="flex flex-none items-center gap-1.5">
+                <span className="text-[13.5px] font-semibold" data-numeric>
+                  {o.amountPaisa > 0 ? paisaCompact(o.amountPaisa) : "—"}
+                </span>
+                <RowActions
+                  table="fund_transactions"
+                  id={o.id}
+                  name={`${o.type} ${o.units.toLocaleString("en-US", { maximumFractionDigits: 4 })} units of ${m?.name ?? "this fund"}`}
+                  consequence="Your units and average NAV for this fund will be recalculated."
+                  editTitle="Edit fund order"
+                  editDescription={`${m?.name ?? "This fund"} — to move units to a different fund, delete this and add it again.`}
+                  action={updateFundOrder}
+                >
+                  <FundOrderFields initial={o} />
+                </RowActions>
+              </div>
             </div>
           );
         })}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 
 /**
  * Switch.
@@ -55,43 +55,5 @@ export function Switch({
         }}
       />
     </button>
-  );
-}
-
-/** Switch with its label and hint, as used throughout Settings. */
-export function SwitchRow({
-  label,
-  hint,
-  defaultOn = false,
-}: {
-  label: string;
-  hint: string;
-  defaultOn?: boolean;
-}) {
-  const [on, setOn] = useState(defaultOn);
-
-  return (
-    <div className="flex items-start justify-between gap-6 py-3">
-      <div className="min-w-0">
-        <div className="text-[13px] font-medium">{label}</div>
-        <p className="mt-0.5 text-[11.5px]" style={{ color: "var(--text-faint)" }}>
-          {hint}
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        {/* State in words as well as position — colour and placement alone are
-            not enough, and this is the fastest way to make the control legible. */}
-        <span
-          className="w-[22px] text-right text-[11px] uppercase tracking-[0.1em]"
-          style={{
-            fontFamily: "var(--font-mono)",
-            color: on ? "var(--brass-text)" : "var(--text-faint)",
-          }}
-        >
-          {on ? "On" : "Off"}
-        </span>
-        <Switch checked={on} onChange={setOn} label={label} />
-      </div>
-    </div>
   );
 }

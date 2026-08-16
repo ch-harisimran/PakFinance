@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Meter } from "@/components/ui/Meter";
 import { formatFull, formatSigned } from "@/lib/money";
 
@@ -13,7 +14,15 @@ export function TransactionList({
   items,
   withIcon = false,
 }: {
-  items: { label: string; meta: string; amount: number }[];
+  items: {
+    id: string;
+    label: string;
+    meta: string;
+    amount: number;
+    /** Row menu, where the screen owns the record. Omitted on the dashboard,
+     *  which is a read surface. */
+    actions?: ReactNode;
+  }[];
   /** Detailed variant used on the Transactions screen. */
   withIcon?: boolean;
 }) {
@@ -21,7 +30,9 @@ export function TransactionList({
     <>
       {items.map((t) => (
         <div
-          key={t.label}
+          // Keyed by id, not label: "Groceries" twice in a month is normal, and
+          // a duplicate key would make React reuse the wrong row's state.
+          key={t.id}
           className={`flex items-center justify-between gap-4 border-b transition-colors duration-200 last:border-b-0 hover:bg-[var(--surface-1)] ${
             withIcon ? "px-5 py-4" : "px-5 py-3.5"
           }`}
@@ -52,13 +63,16 @@ export function TransactionList({
               </div>
             </div>
           </div>
-          <span
-            className={`flex-none font-semibold ${withIcon ? "text-[14px]" : "text-[13.5px]"}`}
-            style={{ color: t.amount > 0 ? "var(--color-gain)" : "var(--text-primary)" }}
-            data-numeric
-          >
-            {formatSigned(t.amount)}
-          </span>
+          <div className="flex flex-none items-center gap-1.5">
+            <span
+              className={`font-semibold ${withIcon ? "text-[14px]" : "text-[13.5px]"}`}
+              style={{ color: t.amount > 0 ? "var(--color-gain)" : "var(--text-primary)" }}
+              data-numeric
+            >
+              {formatSigned(t.amount)}
+            </span>
+            {t.actions}
+          </div>
         </div>
       ))}
     </>

@@ -1,9 +1,11 @@
-import { Receipt } from "lucide-react";
+import { Receipt, BellRing } from "lucide-react";
 import { PageHeader, StatRow } from "@/components/dashboard/PageHeader";
 import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Meter } from "@/components/ui/Meter";
-import { AddLoan, LogPayment } from "@/components/forms/EntryForms";
+import { RowActions } from "@/components/dashboard/RowActions";
+import { AddLoan, LogPayment, LoanFields, PaymentFields } from "@/components/forms/EntryForms";
+import { updateLoan, updateLoanPayment } from "@/app/dashboard/actions";
 import { getLoans, loanOutstanding } from "@/lib/queries";
 import { paisaFull } from "@/lib/money";
 
@@ -61,19 +63,51 @@ export default async function LoansPage() {
                       {l.markup_rate ? ` · ${l.markup_rate}%` : ""}
                     </p>
                   </div>
-                  {l.due_day && (
-                    <span
-                      className="whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em]"
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        borderColor: "var(--border-subtle)",
-                        color: "var(--text-faint)",
-                      }}
+                  <div className="flex flex-none items-center gap-1.5">
+                    {l.reminder_enabled && (
+                      <span
+                        title={
+                          l.reminder_days_before === 0
+                            ? "Emailed on the due date"
+                            : `Emailed ${l.reminder_days_before} day${l.reminder_days_before === 1 ? "" : "s"} before`
+                        }
+                        className="grid h-6 w-6 place-items-center rounded-full border"
+                        style={{ borderColor: "var(--border-subtle)" }}
+                      >
+                        <BellRing size={11} strokeWidth={1.9} color="var(--brass-text)" />
+                        <span className="sr-only">Reminder set</span>
+                      </span>
+                    )}
+                    {(l.due_day || l.due_date) && (
+                      <span
+                        className="whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em]"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          borderColor: "var(--border-subtle)",
+                          color: "var(--text-faint)",
+                        }}
+                      >
+                        {l.due_date
+                          ? `Due ${l.due_date}`
+                          : `Due ${l.due_day}${l.due_day === 1 ? "st" : l.due_day === 2 ? "nd" : l.due_day === 3 ? "rd" : "th"}`}
+                      </span>
+                    )}
+                    <RowActions
+                      table="loans"
+                      id={l.id}
+                      name={l.name}
+                      consequence={
+                        l.loan_payments.length
+                          ? `Its ${l.loan_payments.length} logged payment${l.loan_payments.length === 1 ? "" : "s"} will be deleted too.`
+                          : undefined
+                      }
+                      editTitle="Edit loan"
+                      editDescription="The outstanding balance is derived from your payments, so it updates itself."
+                      action={updateLoan}
                     >
-                      Due {l.due_day}
-                      {l.due_day === 1 ? "st" : l.due_day === 2 ? "nd" : l.due_day === 3 ? "rd" : "th"}
-                    </span>
-                  )}
+                      <LoanFields initial={l} />
+                    </RowActions>
+                  </div>
                 </div>
 
                 <div className="flex items-baseline text-[26px] font-semibold leading-none tracking-[-0.025em]">
@@ -103,12 +137,12 @@ export default async function LoansPage() {
 
           <Panel title="Payment history" subtitle="Across all loans" bodyClassName="p-0">
             {rows
-              .flatMap((l) => l.loan_payments.map((p, i) => ({ ...p, loan: l.name, key: `${l.id}-${i}` })))
+              .flatMap((l) => l.loan_payments.map((p) => ({ ...p, loan: l.name })))
               .sort((a, b) => b.paid_at.localeCompare(a.paid_at))
               .slice(0, 15)
               .map((p) => (
                 <div
-                  key={p.key}
+                  key={p.id}
                   className="flex items-center justify-between gap-4 border-b px-5 py-3.5 last:border-b-0"
                   style={{ borderColor: "var(--border-subtle)" }}
                 >
@@ -118,9 +152,21 @@ export default async function LoansPage() {
                       {p.paid_at}
                     </div>
                   </div>
-                  <span className="flex-none text-[13.5px] font-semibold" data-numeric>
-                    {paisaFull(p.amount_paisa)}
-                  </span>
+                  <div className="flex flex-none items-center gap-1.5">
+                    <span className="text-[13.5px] font-semibold" data-numeric>
+                      {paisaFull(p.amount_paisa)}
+                    </span>
+                    <RowActions
+                      table="loan_payments"
+                      id={p.id}
+                      name={`${paisaFull(p.amount_paisa)} paid on ${p.paid_at}`}
+                      consequence="The loan's outstanding balance will go back up by that amount."
+                      editTitle="Edit payment"
+                      action={updateLoanPayment}
+                    >
+                      <PaymentFields initial={p} />
+                    </RowActions>
+                  </div>
                 </div>
               ))}
             {markupPaid === 0 && rows.every((l) => l.loan_payments.length === 0) && (

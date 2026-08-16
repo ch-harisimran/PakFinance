@@ -1,6 +1,8 @@
 import "server-only";
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import type { Profile } from "@/lib/profile";
 
 /**
  * Reads for user-owned data.
@@ -12,7 +14,46 @@ import { createClient } from "@/lib/supabase/server";
  *
  * Derived figures (loan outstanding, goal progress) are computed here rather
  * than stored, so a ledger and its total can never disagree.
+ *
+ * Every read is wrapped in React's `cache()`, which dedupes by arguments for the
+ * duration of one request. The dashboard layout needs loans and goals for the
+ * notification bell and the page beneath it needs the same rows — without this,
+ * every screen would fetch them twice.
  */
+
+/**
+ * The signed-in user's identity.
+ *
+ * Falls back to `user_metadata.full_name` — signup writes the name there, and a
+ * trigger copies it into `profiles`. If that trigger ever fails, the header
+ * should still show a name rather than an empty space.
+ */
+export const getProfile = cache(async (): Promise<Profile | null> => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("full_name,phone,avatar_url,notation,theme")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const meta = user.user_metadata as { full_name?: string } | undefined;
+
+  return {
+    userId: user.id,
+    email: user.email ?? "",
+    fullName: data?.full_name ?? meta?.full_name ?? null,
+    phone: data?.phone ?? user.phone ?? null,
+    avatarUrl: data?.avatar_url ?? null,
+    notation: data?.notation === "subcontinental" ? "subcontinental" : "international",
+    theme: data?.theme ?? "dark",
+    lastSignInAt: user.last_sign_in_at ?? null,
+  };
+});
 
 export interface AccountRow {
   id: string;
@@ -44,8 +85,11 @@ export interface LoanRow {
   tenure_months: number | null;
   start_date: string;
   due_day: number | null;
+  due_date: string | null;
+  reminder_enabled: boolean;
+  reminder_days_before: number;
   is_settled: boolean;
-  loan_payments: { amount_paisa: number; paid_at: string }[];
+  loan_payments: { id: string; amount_paisa: number; principal_paisa: number | null; markup_paisa: number | null; paid_at: string }[];
 }
 
 export interface GoalRow {
@@ -55,10 +99,10 @@ export interface GoalRow {
   target_paisa: number;
   target_date: string | null;
   status: string;
-  goal_contributions: { amount_paisa: number; occurred_at: string }[];
+  goal_contributions: { id: string; amount_paisa: number; occurred_at: string }[];
 }
 
-export async function getAccounts() {
+export const getAccounts = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("accounts")
@@ -66,9 +110,9 @@ export async function getAccounts() {
     .eq("is_active", true)
     .order("created_at");
   return (data ?? []) as AccountRow[];
-}
+});
 
-export async function getTransactions(limit = 50) {
+export const getTransactions = cache(async (limit = 50) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("transactions")
@@ -76,29 +120,29 @@ export async function getTransactions(limit = 50) {
     .order("occurred_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as TransactionRow[];
-}
+});
 
-export async function getLoans() {
+export const getLoans = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("loans")
     .select(
-      "id,name,lender,kind,direction,principal_paisa,markup_rate,installment_paisa,tenure_months,start_date,due_day,is_settled,loan_payments(amount_paisa,paid_at)",
+      "id,name,lender,kind,direction,principal_paisa,markup_rate,installment_paisa,tenure_months,start_date,due_day,due_date,reminder_enabled,reminder_days_before,is_settled,loan_payments(id,amount_paisa,principal_paisa,markup_paisa,paid_at)",
     )
     .order("created_at");
   return (data ?? []) as LoanRow[];
-}
+});
 
-export async function getGoals() {
+export const getGoals = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("goals")
     .select(
-      "id,name,category,target_paisa,target_date,status,goal_contributions(amount_paisa,occurred_at)",
+      "id,name,category,target_paisa,target_date,status,goal_contributions(id,amount_paisa,occurred_at)",
     )
     .order("created_at");
   return (data ?? []) as GoalRow[];
-}
+});
 
 /* ── Derivations ──────────────────────────────────────────────────────────── */
 

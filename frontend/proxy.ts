@@ -4,9 +4,17 @@ import { createServerClient } from "@supabase/ssr";
 /**
  * Refreshes the Supabase session on every request and guards the app routes.
  *
+ * Called `proxy` rather than `middleware`: Next 16 renamed the convention. The
+ * behaviour is identical — same signature, same `config.matcher` — only the
+ * file name and the exported function name changed.
+ *
  * `getUser()` rather than `getSession()`: getSession only decodes the cookie,
  * which a client can forge. getUser verifies the JWT with Supabase, so a
  * tampered cookie cannot get past this.
+ *
+ * This is a guard, not the authorisation model. Next's own guidance is that the
+ * proxy is an optimistic check; every read is additionally protected by RLS in
+ * the database, which is what actually stops one user reading another's rows.
  */
 
 const PROTECTED = ["/dashboard"];
@@ -21,7 +29,7 @@ const PROTECTED = ["/dashboard"];
  */
 const AUTH_ROUTES = ["/login", "/signup", "/verify", "/forgot-password"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

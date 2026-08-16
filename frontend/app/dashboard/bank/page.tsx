@@ -3,7 +3,14 @@ import { PageHeader, StatRow } from "@/components/dashboard/PageHeader";
 import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TransactionList } from "@/components/dashboard/TransactionList";
-import { AddAccount, LogTransaction } from "@/components/forms/EntryForms";
+import { RowActions } from "@/components/dashboard/RowActions";
+import {
+  AddAccount,
+  LogTransaction,
+  AccountFields,
+  TransactionFields,
+} from "@/components/forms/EntryForms";
+import { updateAccount, updateTransaction } from "@/app/dashboard/actions";
 import { getAccounts, getTransactions, cashFlow } from "@/lib/queries";
 import { paisaFull } from "@/lib/money";
 
@@ -63,13 +70,26 @@ export default async function BankPage() {
                       <Landmark size={16} strokeWidth={1.7} color="var(--brass-text)" />
                     )}
                   </span>
-                  <span
-                    className="text-[10px] uppercase tracking-[0.12em]"
-                    style={{ fontFamily: "var(--font-mono)", color: "var(--text-faint)" }}
-                  >
-                    {a.kind.toLowerCase()}
-                    {a.masked_number ? ` · ****${a.masked_number}` : ""}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="text-[10px] uppercase tracking-[0.12em]"
+                      style={{ fontFamily: "var(--font-mono)", color: "var(--text-faint)" }}
+                    >
+                      {a.kind.toLowerCase()}
+                      {a.masked_number ? ` · ****${a.masked_number}` : ""}
+                    </span>
+                    <RowActions
+                      table="accounts"
+                      id={a.id}
+                      name={a.name}
+                      consequence="Transactions logged against it are kept, but will no longer show an account."
+                      editTitle="Edit account"
+                      editDescription="Correcting the balance also updates when it was last confirmed."
+                      action={updateAccount}
+                    >
+                      <AccountFields initial={a} />
+                    </RowActions>
+                  </div>
                 </div>
                 <div className="text-[13px]" style={{ color: "var(--text-muted)" }}>
                   {a.name}
@@ -97,9 +117,21 @@ export default async function BankPage() {
             {txns.length ? (
               <TransactionList
                 items={txns.map((t) => ({
+                  id: t.id,
                   label: t.label,
                   meta: `${t.category ?? "Uncategorised"} · ${new Date(t.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
                   amount: t.amount_paisa / 100,
+                  actions: (
+                    <RowActions
+                      table="transactions"
+                      id={t.id}
+                      name={t.label}
+                      editTitle="Edit transaction"
+                      action={updateTransaction}
+                    >
+                      <TransactionFields accounts={accounts} initial={t} />
+                    </RowActions>
+                  ),
                 }))}
               />
             ) : (

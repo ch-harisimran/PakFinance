@@ -135,10 +135,41 @@ export const loans = pgTable(
     startDate: date("start_date").notNull(),
     /** Day of month the installment falls due, 1–31. */
     dueDay: smallint("due_day"),
+    /**
+     * For a loan repaid in one go — money from a relative, a committee — rather
+     * than monthly. A loan uses `dueDay` OR `dueDate`, not both.
+     */
+    dueDate: date("due_date"),
     isSettled: boolean("is_settled").notNull().default(false),
+    /** Email the user before the next repayment falls due. */
+    reminderEnabled: boolean("reminder_enabled").notNull().default(false),
+    /** Lead time in days. 0 means "on the day". */
+    reminderDaysBefore: smallint("reminder_days_before").notNull().default(3),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("loans_user_idx").on(t.userId)],
+);
+
+/**
+ * What the reminder job has already sent.
+ *
+ * Keyed by the repayment date rather than the send date, so the uniqueness holds
+ * across months and a re-run — retried workflow, overlapping cron, manual
+ * trigger — cannot email the same person about the same installment twice.
+ */
+export const loanRemindersSent = pgTable(
+  "loan_reminders_sent",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    loanId: uuid("loan_id")
+      .notNull()
+      .references(() => loans.id, { onDelete: "cascade" }),
+    dueDate: date("due_date").notNull(),
+    channel: text("channel").notNull().default("email"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("loan_reminders_sent_user_idx").on(t.userId)],
 );
 
 /**

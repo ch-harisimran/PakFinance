@@ -14,7 +14,8 @@
         "sync:psx": "tsx scripts/sync-psx.ts",
         "backfill": "tsx scripts/backfill-eod.ts",
         "sync:nav": "tsx scripts/sync-nav.ts",
-        "snapshot": "tsx scripts/snapshot.ts"
+        "snapshot": "tsx scripts/snapshot.ts",
+    "reminders": "tsx scripts/send-reminders.ts"
     },
     "dependencies": {
         "@gsap/react": "^2.1.2",

@@ -4,7 +4,9 @@ import { Panel } from "@/components/dashboard/Panel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Breakdown } from "@/components/dashboard/Breakdown";
 import { TypeBadge } from "@/components/dashboard/TypeBadge";
-import { AddTrade } from "@/components/forms/TradeForm";
+import { AddTrade, TradeFields } from "@/components/forms/TradeForm";
+import { RowActions } from "@/components/dashboard/RowActions";
+import { updateTrade } from "@/app/dashboard/actions";
 import { PortfolioChart } from "@/components/dashboard/PortfolioChart";
 import {
   getTrades,
@@ -215,15 +217,28 @@ export default async function PsxPage() {
                 </div>
               </div>
             </div>
-            <div className="text-right" data-numeric>
-              <div className="text-[13.5px] font-semibold">
-                {paisaCompact(Math.round(t.quantity * t.pricePaisa))}
-              </div>
-              {t.chargesPaisa > 0 && (
-                <div className="mt-0.5 text-[11px]" style={{ color: "var(--text-faint)" }}>
-                  +{paisaFull(t.chargesPaisa)} charges
+            <div className="flex flex-none items-center gap-1.5">
+              <div className="text-right" data-numeric>
+                <div className="text-[13.5px] font-semibold">
+                  {paisaCompact(Math.round(t.quantity * t.pricePaisa))}
                 </div>
-              )}
+                {t.chargesPaisa > 0 && (
+                  <div className="mt-0.5 text-[11px]" style={{ color: "var(--text-faint)" }}>
+                    +{paisaFull(t.chargesPaisa)} charges
+                  </div>
+                )}
+              </div>
+              <RowActions
+                table="stock_transactions"
+                id={t.id}
+                name={`${t.type} ${t.quantity.toLocaleString("en-US")} ${t.symbol} on ${t.tradedAt}`}
+                consequence="Your average cost and return for this scrip will be recalculated."
+                editTitle="Edit PSX transaction"
+                editDescription="Cost basis is weighted average, so a correction here re-derives every figure."
+                action={updateTrade}
+              >
+                <TradeFields initial={t} />
+              </RowActions>
             </div>
           </div>
         ))}

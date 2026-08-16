@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CalendarClock, TriangleAlert, Wallet, PiggyBank, LineChart } from "lucide-react";
-import { paisaFull } from "@/lib/money";
+import { buildAlerts, type AlertInput } from "@/lib/alerts";
 
 /**
  * Zone 2 — what needs you.
@@ -9,18 +9,12 @@ import { paisaFull } from "@/lib/money";
  * authored: installments coming due, goals drifting off pace, and — for an
  * empty account — the setup steps still outstanding.
  *
+ * The derivation itself lives in lib/alerts.ts, shared with the notification
+ * bell, so the two can never disagree about what needs attention.
+ *
  * The empty case is deliberately the same component. A new user meeting a grid
  * of zeroes learns nothing; a new user meeting three things to do has a path.
  */
-
-interface Item {
-  kind: "due" | "goal" | "setup";
-  title: string;
-  detail: string;
-  when: string;
-  href: string;
-  action: string;
-}
 
 const ICON = { due: CalendarClock, goal: TriangleAlert, setup: Wallet };
 const TONE = {
@@ -29,79 +23,16 @@ const TONE = {
   setup: "var(--text-faint)",
 };
 
-/** Days until the next occurrence of a day-of-month. */
-function daysUntil(dueDay: number): number {
-  const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth(), dueDay);
-  if (next < now) next.setMonth(next.getMonth() + 1);
-  return Math.max(0, Math.ceil((next.getTime() - now.getTime()) / 864e5));
-}
-
 export function Attention({
   loans,
   goals,
   counts,
 }: {
-  loans: { id: string; name: string; lender: string | null; installment_paisa: number | null; due_day: number | null; remainingPaisa: number }[];
-  goals: { id: string; name: string; onTrack: boolean; monthlyNeededPaisa: number; target_date: string | null }[];
-  counts: { accounts: number; trades: number; funds: number; goals: number };
+  loans: AlertInput["loans"];
+  goals: AlertInput["goals"];
+  counts: NonNullable<AlertInput["counts"]>;
 }) {
-  const items: Item[] = [];
-
-  for (const l of loans) {
-    if (l.remainingPaisa <= 0 || !l.due_day || !l.installment_paisa) continue;
-    const days = daysUntil(l.due_day);
-    if (days > 14) continue;
-    items.push({
-      kind: "due",
-      title: `${l.name} installment`,
-      detail: `${paisaFull(l.installment_paisa)}${l.lender ? ` to ${l.lender}` : ""}`,
-      when: days === 0 ? "Due today" : `Due in ${days} day${days === 1 ? "" : "s"}`,
-      href: "/dashboard/loans",
-      action: "Log payment",
-    });
-  }
-
-  for (const g of goals) {
-    if (g.onTrack || !g.target_date) continue;
-    items.push({
-      kind: "goal",
-      title: `${g.name} is behind schedule`,
-      detail: `${paisaFull(g.monthlyNeededPaisa)}/month needed to hit ${g.target_date}`,
-      when: "Off track",
-      href: "/dashboard/goals",
-      action: "Review goal",
-    });
-  }
-
-  // Setup prompts only while the relevant thing is genuinely absent.
-  if (!counts.accounts)
-    items.push({
-      kind: "setup",
-      title: "Add a bank account",
-      detail: "Track balances and cash flow alongside your investments.",
-      when: "Setup",
-      href: "/dashboard/bank",
-      action: "Add account",
-    });
-  if (!counts.trades)
-    items.push({
-      kind: "setup",
-      title: "Add your PSX holdings",
-      detail: "Five years of closing prices are already loaded — past trades value correctly.",
-      when: "Setup",
-      href: "/dashboard/psx",
-      action: "Add transaction",
-    });
-  if (!counts.goals)
-    items.push({
-      kind: "setup",
-      title: "Set a savings goal",
-      detail: "A target and a date, and we work out the monthly contribution.",
-      when: "Setup",
-      href: "/dashboard/goals",
-      action: "Add goal",
-    });
+  const items = buildAlerts({ loans, goals, counts });
 
   if (!items.length) {
     return (
