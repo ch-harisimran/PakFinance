@@ -239,7 +239,19 @@ export function AppLock({
   }
 
   // Avoid a flash of the app before we know whether it should be locked.
-  if (!ready) return null;
+  /**
+   * Only an account WITH a PIN waits.
+   *
+   * This used to be `if (!ready) return null` unconditionally, which withheld
+   * the entire dashboard until the client bundle had downloaded, parsed and
+   * hydrated. On a laptop that is imperceptible; on a phone it is seconds of
+   * blank screen with the server-rendered HTML sitting there unused.
+   *
+   * The server already knows whether a PIN exists. With none there is nothing
+   * to lock and nothing to flash, so the page paints immediately. With one, the
+   * original guard still holds and no content appears before the lock does.
+   */
+  if (!ready && pinSet) return null;
 
   return (
     <>

@@ -32,11 +32,11 @@ export function Problem() {
 
       mm.add(
         {
-          desktop: "(min-width: 768px) and (prefers-reduced-motion: no-preference)",
-          reduced: "(max-width: 767px), (prefers-reduced-motion: reduce)",
+          motion: "(prefers-reduced-motion: no-preference)",
+          reduced: "(prefers-reduced-motion: reduce)",
         },
         (ctx) => {
-          const { reduced } = ctx.conditions as { desktop: boolean; reduced: boolean };
+          const { reduced } = ctx.conditions as { motion: boolean; reduced: boolean };
           const cards = gsap.utils.toArray<HTMLElement>("[data-scatter]");
 
           if (reduced) {
@@ -48,10 +48,27 @@ export function Problem() {
             return;
           }
 
+          /**
+           * The scatter offsets are authored against a wide viewport — ±300 to
+           * ±360px from centre. On a 390px phone that throws the cards clean off
+           * both edges, which is what made this section look broken rather than
+           * animated.
+           *
+           * So they are scaled to the space actually available instead of the
+           * animation being dropped: the widest offset is mapped to whatever
+           * half-width the screen has, minus the card and a margin. A phone gets
+           * the same choreography, drawn smaller. Above the authored width the
+           * factor is 1, so desktop plays exactly as before.
+           */
+          const AUTHORED_REACH = 360;
+          const half = window.innerWidth / 2;
+          const room = Math.max(0, half - 96); // card half-width + breathing space
+          const scale = Math.min(1, room / AUTHORED_REACH);
+
           cards.forEach((card) => {
             gsap.set(card, {
-              x: Number(card.dataset.x),
-              y: Number(card.dataset.y),
+              x: Number(card.dataset.x) * scale,
+              y: Number(card.dataset.y) * (scale < 1 ? Math.max(scale, 0.55) : 1),
               rotate: Number(card.dataset.r),
               opacity: 0.55,
             });
@@ -127,20 +144,8 @@ export function Problem() {
           </h2>
         </div>
 
-        {/*
-          The scattered cards.
-
-          `max-md:hidden` because this layer and the merged panel below are two
-          absolutely-positioned states of the same scene, cross-faded by the
-          scroll timeline. Below `md` that timeline does not run, so both were
-          painted at once — three 164px cards in a flex row overflowing a 390px
-          screen, with the closing panel sitting on top of them.
-
-          On a phone the scatter is decoration and the merged panel is the
-          point, so the decoration goes. Desktop is untouched: the layer, its
-          offsets and the animation are all unchanged above `md`.
-        */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center max-md:hidden">
+        {/* The scattered cards */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           {SCATTERED.map((c) => (
             <div
               key={c.label}
@@ -148,7 +153,7 @@ export function Problem() {
               data-x={c.x}
               data-y={c.y}
               data-r={c.r}
-              className="glass-panel absolute flex w-[194px] items-center gap-3 px-4 py-3 max-md:relative max-md:mx-1 max-md:my-1 max-md:w-[164px]"
+              className="glass-panel absolute flex w-[194px] items-center gap-3 px-4 py-3 max-md:w-[150px] max-md:px-3 max-md:py-2.5"
             >
               <div
                 className="grid h-8 w-8 flex-none place-items-center rounded-[9px]"
@@ -171,7 +176,7 @@ export function Problem() {
         {/* What they become */}
         <div
           data-merge-in
-          className="absolute inset-x-0 flex flex-col items-center px-5 text-center opacity-0 max-md:relative max-md:opacity-100"
+          className="absolute inset-x-0 flex flex-col items-center px-5 text-center opacity-0"
         >
           <div
             className="mb-6 text-[11px] uppercase tracking-[0.18em]"

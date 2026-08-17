@@ -70,9 +70,12 @@ export function MobileNav({ profile }: { profile: Profile | null }) {
             role="dialog"
             aria-modal="true"
             aria-label="Navigation"
-            className="absolute inset-y-0 left-0 flex w-[min(300px,84vw)] flex-col border-r"
+            // z-10 and an explicit opaque colour: the backdrop beside it carries
+            // a backdrop-filter, which establishes its own stacking context, and
+            // the panel was reading through as translucent.
+            className="absolute inset-y-0 left-0 z-10 flex w-[min(300px,84vw)] flex-col border-r"
             style={{
-              backgroundColor: "var(--color-ground-ink)",
+              backgroundColor: "#0A0B0D",
               borderColor: "var(--border-subtle)",
               boxShadow: "0 0 60px rgba(0,0,0,0.6)",
             }}
