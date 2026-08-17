@@ -27,6 +27,23 @@ export default function TermsPage() {
         are yours.
       </Callout>
 
+      {/* Second callout, not a subsection: the non-commercial status and the
+          origin of the market data are the two things a reader should not have
+          to scroll to find. Repeated verbatim at the top of the privacy page. */}
+      <div className="mt-4">
+        <Callout>
+          <strong>A personal project, not a commercial service.</strong> PakFinance
+          is built and run by one person for personal use. Nothing is sold, no
+          subscription is charged, no advertising is carried, and no one&rsquo;s data
+          is sold or shared for commercial gain. Share prices come from the
+          Pakistan Stock Exchange and fund NAVs from MUFAP; that data belongs to
+          them, is used here only to value holdings you entered yourself, is never
+          redistributed as a feed, and remains subject to their own terms. This
+          project is not affiliated with, endorsed by, or operated in partnership
+          with PSX, MUFAP, any asset management company, or any bank.
+        </Callout>
+      </div>
+
       <div className="mt-9">
         <Section heading="What the service is">
           <p>

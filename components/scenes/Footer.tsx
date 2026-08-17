@@ -95,10 +95,14 @@ export function Footer() {
           className="mt-20 flex flex-col gap-4 border-t pt-8 text-[12.5px] sm:flex-row sm:items-center sm:justify-between"
           style={{ borderColor: "var(--border-subtle)", color: "var(--text-faint)" }}
         >
-          <span>© 2026 PakFinance. All rights reserved.</span>
-          <span className="max-w-[52ch] sm:text-right">
-            PakFinance is a personal finance tracking tool and does not provide
-            investment advice.
+          <span>© 2026 PakFinance. A personal project.</span>
+          {/* The non-commercial status and the data's origin belong where every
+              visitor sees them, not only on the legal pages they have to click
+              into. Stated in full at the top of /terms and /privacy. */}
+          <span className="max-w-[62ch] sm:text-right">
+            A personal, non-commercial project — not investment advice, and not
+            affiliated with PSX, MUFAP or any bank. Market data belongs to its
+            sources and is used only to value holdings you enter yourself.
           </span>
         </div>
       </div>

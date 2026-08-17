@@ -25,6 +25,23 @@ export default function PrivacyPage() {
         one. Every balance and holding is there because you typed it in.
       </Callout>
 
+      {/* The same notice that leads the terms page. A reader who arrives here
+          first should learn the non-commercial status without having to go and
+          read the other document. */}
+      <div className="mt-4">
+        <Callout>
+          <strong>A personal project, not a commercial service.</strong> PakFinance
+          is built and run by one person for personal use. Nothing is sold, no
+          subscription is charged, no advertising is carried, and no one&rsquo;s data
+          is sold or shared for commercial gain. Share prices come from the
+          Pakistan Stock Exchange and fund NAVs from MUFAP; that data belongs to
+          them, is used here only to value holdings you entered yourself, is never
+          redistributed as a feed, and remains subject to their own terms. This
+          project is not affiliated with, endorsed by, or operated in partnership
+          with PSX, MUFAP, any asset management company, or any bank.
+        </Callout>
+      </div>
+
       <div className="mt-9">
         <Section heading="What we store">
           <p>Only what the product needs to show you your own position:</p>
