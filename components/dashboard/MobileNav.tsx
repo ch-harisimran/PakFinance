@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -56,7 +57,22 @@ export function MobileNav({ profile }: { profile: Profile | null }) {
         <Menu size={18} strokeWidth={1.8} />
       </button>
 
-      {open && (
+      {/*
+        PORTALLED TO <body>, and that is load-bearing.
+
+        `position: fixed` is resolved against the nearest ancestor carrying a
+        transform, filter, backdrop-filter or perspective — not the viewport.
+        This trigger lives in the top bar, which has `backdrop-blur-xl`, so a
+        `fixed inset-0` overlay rendered here was confined to the HEADER's box:
+        a drawer about eighty pixels tall with the page showing beneath it.
+
+        Rendering into <body> escapes that containing block, so the overlay
+        covers the viewport as intended.
+      */}
+      {/* No `mounted` guard needed: `open` starts false and can only be set by a
+        click, which is necessarily client-side, so `document.body` exists by
+        the time this renders. */}
+      {open && createPortal(
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
@@ -177,7 +193,8 @@ export function MobileNav({ profile }: { profile: Profile | null }) {
               </span>
             </Link>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

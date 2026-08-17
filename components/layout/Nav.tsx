@@ -56,7 +56,7 @@ export function Nav() {
               comment there for why it is not Tailwind utilities. */}
           <Link
             href="/login"
-            className="nav-login hidden min-h-[24px] items-center px-3 py-1.5 text-[14px] sm:inline-flex"
+            className="nav-login inline-flex min-h-[44px] items-center px-3 py-1.5 text-[14px]"
           >
             Log in
           </Link>
