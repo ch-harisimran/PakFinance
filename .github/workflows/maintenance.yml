@@ -36,6 +36,16 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # The lock file is written by npm 11 on the developer's machine, and
+      # npm 10 — which Node 22 bundles — refuses to install it: `vite` under
+      # `vitest` needs esbuild ^0.27||^0.28 and the hoisted copy is 0.25.12, a
+      # tree npm 11 resolves and npm 10 reports as
+      # "Missing: esbuild@0.28.2 from lock file". Every scheduled job failed on
+      # this. Matching the major here is what stops a lock that installs fine
+      # locally from breaking CI; bump it if the local npm major moves.
+      - name: Match the npm that wrote the lock file
+        run: npm install -g npm@11
+
       - name: Install
         working-directory: frontend
         # Not --ignore-scripts: esbuild (via tsx) needs its postinstall to place
