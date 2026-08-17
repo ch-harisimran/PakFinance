@@ -433,16 +433,28 @@ html.lenis body {
     box-shadow:
       var(--highlight-top),
       0 20px 44px -20px rgba(0, 0, 0, 0.9);
-    /* Pull each card into the one above it. */
-    margin-top: -22px;
+    /*
+     * A TUCK, not a bite.
+     *
+     * This was -22px, which looked right against the 241px and 356px panels and
+     * destroyed everything else: the small cards in this deck are 59-70px tall,
+     * so 22px swallowed a third of each — "Salary credited / Rs 100,000" lost
+     * its value line, and the NAV card lost its header.
+     *
+     * A fixed overlap cannot serve both, and CSS cannot scale one to its own
+     * element's height. So it is sized for the SMALLEST card: 8px is a seam on a
+     * 59px card and still reads as a stack on a 356px one. Overlap that hides
+     * content is not depth, it is damage.
+     */
+    margin-top: -8px;
   }
 
   /* Alternating tilt, small enough to read as hand-stacked rather than askew. */
   .hero-deck [data-deck-item]:nth-of-type(odd) {
-    transform: rotate(-1.15deg);
+    transform: rotate(-0.55deg);
   }
   .hero-deck [data-deck-item]:nth-of-type(even) {
-    transform: rotate(0.95deg);
+    transform: rotate(0.45deg);
   }
 
   /* The first card in the deck has nothing to overlap, and the tilt would
@@ -455,7 +467,10 @@ html.lenis body {
   /* Rotation makes the corners sweep wider than the box, so keep them off the
      screen edges. */
   .hero-deck {
-    padding-inline: 6px;
+    padding-inline: 10px;
+    /* Rotation sweeps the corners wider than the box; without this the outer
+       edges clipped against the viewport. */
+    overflow-x: clip;
   }
 
   @media (prefers-reduced-motion: reduce) {
