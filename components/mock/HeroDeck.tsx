@@ -56,7 +56,7 @@ export function HeroDeck() {
 
       <Tilt
         max={3}
-        className={`relative ${PRESERVE}`}
+        className={`deck-tilt relative ${PRESERVE}`}
         style={{ transform: "rotateY(-9deg) rotateX(3deg)" }}
       >
         <div className={`flex items-start ${PRESERVE} max-lg:flex-col max-lg:gap-0`}>
@@ -130,7 +130,7 @@ export function HeroDeck() {
             <div
               data-deck-item
               data-z="62"
-              className="glass-panel flex items-end justify-between px-4 py-3"
+              className="glass-panel flex items-end justify-between px-4 py-3 max-lg:hidden"
             >
               <div>
                 <div
@@ -152,7 +152,7 @@ export function HeroDeck() {
             <div
               data-deck-item
               data-z="76"
-              className="glass-panel flex items-center gap-3 px-4 py-3"
+              className="glass-panel flex items-center gap-3 px-4 py-3 max-lg:hidden"
             >
               <div
                 className="grid h-8 w-8 flex-none place-items-center rounded-[9px]"
@@ -174,7 +174,7 @@ export function HeroDeck() {
             <div
               data-deck-item
               data-z="88"
-              className="glass-panel flex items-center gap-3.5 px-4 py-3"
+              className="glass-panel flex items-center gap-3.5 px-4 py-3 max-lg:hidden"
             >
               <svg className="h-11 w-11 flex-none" viewBox="0 0 44 44" aria-hidden="true">
                 <circle cx="22" cy="22" r="20" fill="none" strokeWidth="4" stroke="var(--surface-3)" />
@@ -205,7 +205,7 @@ export function HeroDeck() {
           {/* Inset from the left on mobile so it sits UNDER the market stack
               rather than beside it — the same front-to-back reading the -ml-6
               overlap gives on desktop, expressed vertically. */}
-          <div className={`z-20 -ml-6 flex-1 ${PRESERVE} max-lg:ml-0 max-lg:w-full`}>
+          <div className={`z-20 -ml-6 flex-1 ${PRESERVE} max-lg:hidden`}>
             <div
               data-deck-item
               data-deck-main
@@ -304,7 +304,7 @@ export function HeroDeck() {
             <div
               data-deck-item
               data-z="40"
-              className="glass-panel relative z-40 -mt-3 ml-auto w-[72%] px-4 py-3.5 max-lg:mt-0 max-lg:w-full"
+              className="glass-panel relative z-40 -mt-3 ml-auto w-[72%] px-4 py-3.5 max-lg:hidden"
             >
               <div className="flex items-start justify-between">
                 <div>
