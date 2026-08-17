@@ -38,7 +38,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       # The lock file is written by npm 11 on the developer's machine, and
       # npm 10 — which Node 22 bundles — refuses to install it: `vite` under
@@ -51,13 +51,11 @@ jobs:
         run: npm install -g npm@11
 
       - name: Install
-        working-directory: frontend
         # Not --ignore-scripts: esbuild (via tsx) needs its postinstall to place
         # the platform binary, and the job cannot run without it.
         run: npm ci
 
       - name: Sync
-        working-directory: frontend
         env:
           # Session pooler (port 5432). The direct db.*.supabase.co host is
           # IPv6-only and unreachable from GitHub runners.

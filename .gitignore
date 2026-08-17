@@ -1,21 +1,63 @@
-# Root-level ignores. Workspace-specific ignores live in each workspace
-# (frontend/.gitignore, and backend/.gitignore when it exists), so patterns
-# stay next to the thing they describe.
-
 # dependencies
-node_modules/
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+dist/
+
+# misc
+.DS_Store
+Thumbs.db
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
 # env — never commit secrets
 .env*
 
-# MCP server config (contains an inline API key)
+# MCP server config — contains an inline API key.
+# Remove this line only if the key is moved to an env var reference.
 .mcp.json
 
-# build output
-dist/
-build/
-*.tsbuildinfo
+# vercel
+.vercel
 
-# editor / OS
-.DS_Store
-Thumbs.db
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Sample output from scripts/verify-report.ts
+report-sample.pdf
+
+# Local database backups — never commit these, they contain user data
+backups/
+
+# ── Local-only working files ────────────────────────────────────────────────
+# Planning notes, agent instructions and internal docs. Useful on this machine,
+# not part of what the repository publishes. Removed from tracking with
+# `git rm -r --cached`, which leaves the files on disk untouched.
+.claude/
+docs/
+CLAUDE.md
+AGENTS.md
+PLAN.md
+BACKEND-PLAN.md
+REMAINING.md

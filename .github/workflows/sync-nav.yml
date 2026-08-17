@@ -11,7 +11,7 @@ name: MUFAP NAV sync
 # Until MUFAP offers a feed or allowlists a client, NAVs are ingested from a
 # report saved in a browser:
 #
-#   npm --prefix frontend run sync:nav -- --file
+#   npm run sync:nav -- --file
 #
 # Kept as manual-dispatch only so a scheduled run does not fail nightly. To
 # re-enable once access exists, restore:
@@ -42,7 +42,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       # The lock file is written by npm 11 on the developer's machine, and
       # npm 10 — which Node 22 bundles — refuses to install it: `vite` under
@@ -55,11 +55,9 @@ jobs:
         run: npm install -g npm@11
 
       - name: Install
-        working-directory: frontend
         run: npm ci
 
       - name: Sync NAVs
-        working-directory: frontend
         env:
           DATABASE_POOL_URL: ${{ secrets.DATABASE_POOL_URL }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
