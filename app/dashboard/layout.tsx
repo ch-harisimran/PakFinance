@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { AppLock } from "@/components/auth/AppLock";
+import { PinPrompt } from "@/components/auth/PinPrompt";
 import { getProfile, getLoans, getGoals, loanOutstanding, goalProgress } from "@/lib/queries";
 import { buildAlerts } from "@/lib/alerts";
 
@@ -45,6 +46,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         className="flex min-h-screen"
         style={{ backgroundColor: "var(--color-ground-ink)", color: "var(--text-primary)" }}
       >
+        {/* Offered once, on any dashboard screen, and only while the account
+            has no PIN. Inside AppLock so it can never appear over the lock. */}
+        <PinPrompt pinSet={profile?.pinSet ?? false} />
+
         <Sidebar profile={profile} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar profile={profile} alerts={alerts} />

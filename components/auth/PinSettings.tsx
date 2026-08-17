@@ -34,32 +34,63 @@ export function PinSettings({ pinSet }: { pinSet: boolean }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
 
+  /**
+   * Not mid-flow — the switch and "Change PIN" belong to both `idle` AND
+   * `saved`. Keying them on `idle` alone meant that the moment a PIN was
+   * stored, `stage` became "saved", the ON branch stopped matching, and the
+   * control flipped to OFF with a PIN sitting in the database. Clicking it then
+   * restarted setup instead of removing anything, and the server never saw a
+   * `removePin` call at all.
+   */
+  const settled = stage === "idle" || stage === "saved";
+
   async function finish(pin: string) {
     setBusy(true);
-
-    // Server first: it is the copy that has to survive. If the local wrap fails
-    // afterwards the PIN still works — the lock screen falls back to verifying
-    // against the server — whereas the reverse would leave a PIN that only this
-    // browser knows about.
-    const stored = await setPinOnServer(pin);
-    if (!stored.ok) {
-      setError(stored.error);
-      setStage("idle");
-      setBusy(false);
-      return;
-    }
-
-    const supabase = createClient();
-    const { data } = await supabase.auth.getSession();
-    const session = data.session;
-    if (session?.refresh_token) {
-      savePin(await wrapSession(pin, session.refresh_token, session.user.email ?? ""));
-    }
-
-    setEnabled(true);
-    setStage("saved");
     setError(undefined);
-    setBusy(false);
+
+    try {
+      // Server first: it is the copy that has to survive. If the local wrap
+      // fails afterwards the PIN still works — the lock screen falls back to
+      // verifying against the server — whereas the reverse would leave a PIN
+      // that only this browser knows about.
+      const stored = await setPinOnServer(pin);
+      if (!stored.ok) {
+        setError(stored.error);
+        setStage("idle");
+        return;
+      }
+
+      /**
+       * The local wrap is an optimisation, and it is allowed to fail.
+       *
+       * `wrapSession` needs `crypto.subtle`, which the browser only exposes in a
+       * SECURE CONTEXT. Over https or localhost it is there; over plain http on
+       * a LAN address — `http://172.20.10.10:3000`, which `next dev` also
+       * serves — it is `undefined` and this throws.
+       *
+       * That used to take the whole function down with it: the PIN was already
+       * stored on the server, but `setEnabled`, `setStage` and `setBusy(false)`
+       * never ran, so the switch stayed `disabled` and looked broken. The
+       * comment above already promised this step was survivable; now it is.
+       */
+      try {
+        const { data } = await createClient().auth.getSession();
+        const session = data.session;
+        if (session?.refresh_token) {
+          savePin(await wrapSession(pin, session.refresh_token, session.user.email ?? ""));
+        }
+      } catch {
+        setError(
+          "PIN saved. This browser could not store it for offline unlocking, so unlocking will need a connection.",
+        );
+      }
+
+      setEnabled(true);
+      setStage("saved");
+    } finally {
+      // Whatever happened above, the control must become usable again.
+      setBusy(false);
+    }
   }
 
   function onEntered(pin: string) {
@@ -80,22 +111,40 @@ export function PinSettings({ pinSet }: { pinSet: boolean }) {
 
   async function disable() {
     setBusy(true);
-    const result = await removePin();
-    if (!result.ok) {
-      setError(result.error);
-      setBusy(false);
-      return;
-    }
-    clearPin();
-    setEnabled(false);
-    setStage("idle");
-    setFirst("");
     setError(undefined);
-    setBusy(false);
+
+    try {
+      const result = await removePin();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      // The server no longer has a verifier, so the local blob is dead weight
+      // whether or not this succeeds — a storage failure must not strand the
+      // control in a busy state.
+      try {
+        clearPin();
+      } catch {
+        // Storage unavailable. Nothing to clean up that matters.
+      }
+
+      setEnabled(false);
+      setStage("idle");
+      setFirst("");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div className="border-t pt-5" style={{ borderColor: "var(--border-subtle)" }}>
+    // `id` is the target of the first-run prompt's "Set up a PIN"; scroll-mt
+    // keeps the heading clear of the sticky top bar when it lands.
+    <div
+      id="pin"
+      className="scroll-mt-24 border-t pt-5"
+      style={{ borderColor: "var(--border-subtle)" }}
+    >
       <div className="flex items-start justify-between gap-6 py-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-[13px] font-medium">
@@ -109,11 +158,12 @@ export function PinSettings({ pinSet }: { pinSet: boolean }) {
           </p>
         </div>
 
-        {enabled && stage === "idle" ? (
-          <Switch checked onChange={disable} label="Quick unlock PIN" />
+        {enabled && settled ? (
+          <Switch checked onChange={disable} disabled={busy} label="Quick unlock PIN" />
         ) : (
           <Switch
             checked={false}
+            disabled={busy}
             onChange={() => {
               setStage("enter");
               setFirst("");
@@ -155,19 +205,19 @@ export function PinSettings({ pinSet }: { pinSet: boolean }) {
         </div>
       )}
 
-      {stage === "saved" && (
+      {stage === "saved" && !error && (
         <p className="mt-3 text-[12.5px]" style={{ color: "var(--color-gain)" }} role="status">
           PIN saved. It stays with your account until you change it here.
         </p>
       )}
 
-      {error && stage === "idle" && (
+      {error && settled && (
         <p className="mt-3 text-[12.5px]" style={{ color: "var(--color-loss)" }} role="alert">
           {error}
         </p>
       )}
 
-      {enabled && stage === "idle" && (
+      {enabled && settled && (
         <button
           onClick={() => {
             setStage("enter");
