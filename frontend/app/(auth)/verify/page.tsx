@@ -61,15 +61,17 @@ function Verify() {
 
       <form action={resend}>
         <input type="hidden" name="email" value={email} />
+        {/* Spam first, resending second: the code is usually already delivered,
+            just filtered, and another one only invalidates the first. */}
         <p className="mt-4 text-[13px]" style={{ color: "var(--text-faint)" }}>
-          Didn&rsquo;t get it?{" "}
+          Didn&rsquo;t get it? Check your spam or junk folder, or{" "}
           <button
             type="submit"
             disabled={resending}
             className="underline underline-offset-4 disabled:opacity-50"
             style={{ color: "var(--brass-text)" }}
           >
-            {resending ? "Sending…" : "Resend code"}
+            {resending ? "Sending…" : "resend the code"}
           </button>
         </p>
       </form>

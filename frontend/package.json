@@ -28,7 +28,8 @@
     "seed:actions": "tsx scripts/seed-actions.ts",
     "reconcile:psx": "tsx scripts/reconcile-psx.ts",
     "merge:funds": "tsx scripts/merge-funds.ts",
-    "verify:pin": "tsx scripts/verify-pin.ts"
+    "verify:pin": "tsx scripts/verify-pin.ts",
+    "sync:nav:api": "tsx scripts/sync-nav-api.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

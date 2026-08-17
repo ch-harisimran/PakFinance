@@ -136,11 +136,11 @@ export default function PrivacyPage() {
           <p>
             Questions about your data:{" "}
             <a
-              href="mailto:support@pakfinance.app"
+              href="mailto:pakfinance.app@gmail.com"
               className="underline underline-offset-4"
               style={{ color: "var(--brass-text)" }}
             >
-              support@pakfinance.app
+              pakfinance.app@gmail.com
             </a>
             .
           </p>

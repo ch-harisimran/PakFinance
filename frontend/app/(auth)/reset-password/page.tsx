@@ -70,7 +70,13 @@ function Reset() {
 
           <OtpOrbit onVerified={() => setVerified(true)} verify={check} />
 
+          {/* Same note as the signup screen: the code is more often filtered
+              than missing, and this is the moment someone goes looking. */}
           <p className="mt-4 text-[13px]" style={{ color: "var(--text-faint)" }}>
+            Not in your inbox? Check your spam or junk folder.
+          </p>
+
+          <p className="mt-2 text-[13px]" style={{ color: "var(--text-faint)" }}>
             Wrong address?{" "}
             <Link
               href="/forgot-password"

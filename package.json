@@ -27,6 +27,7 @@
     "backup": "npm --prefix frontend run backup --",
     "verify:ratelimit": "npm --prefix frontend run verify:ratelimit",
     "db:migrate": "npm --prefix frontend run db:migrate",
-    "verify:pin": "npm --prefix frontend run verify:pin"
+    "verify:pin": "npm --prefix frontend run verify:pin",
+    "sync:nav:api": "npm --prefix frontend run sync:nav:api --"
   }
 }

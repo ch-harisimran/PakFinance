@@ -6,6 +6,7 @@ import {
   bigint,
   numeric,
   smallint,
+  integer,
   boolean,
   date,
   timestamp,
@@ -447,3 +448,24 @@ export const netWorthDaily = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.sessionDate] })],
 );
+
+/**
+ * The admin console's password and session.
+ *
+ * Server-only: RLS is forced with no policies and the client roles hold no
+ * privilege (migration 0015), so this is reachable through Drizzle as `postgres`
+ * and nowhere else. WHO the admin is lives in ADMIN_EMAIL, not here — this table
+ * only answers "has that person set a console password, and is it this one".
+ */
+export const adminAuth = pgTable("admin_auth", {
+  userId: uuid("user_id").primaryKey(),
+  passSalt: text("pass_salt").notNull(),
+  passHash: text("pass_hash").notNull(),
+  /** Hash of the console session token; the cookie carries the raw value. */
+  sessionHash: text("session_hash"),
+  sessionExpiresAt: timestamp("session_expires_at", { withTimezone: true }),
+  failedAttempts: integer("failed_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

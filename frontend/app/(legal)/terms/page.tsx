@@ -59,6 +59,49 @@ export default function TermsPage() {
           </p>
         </Section>
 
+        <Section heading="Market data and its source">
+          <p>
+            Prices and listings come from the Pakistan Stock Exchange&rsquo;s public
+            pages, and mutual fund NAVs from MUFAP&rsquo;s published daily report.
+            That data belongs to them, not to us. Your use of it here is subject to
+            their own terms, conditions and disclaimers, which govern the data
+            regardless of what this page says — if the two ever disagree, theirs
+            wins.
+          </p>
+          <p>
+            PakFinance is not affiliated with, endorsed by, or operated in
+            partnership with the Pakistan Stock Exchange, MUFAP, any asset
+            management company, or any bank. Their names appear here only to say
+            where a number came from.
+          </p>
+          <p>
+            Nothing is redistributed as a data feed: prices are fetched to value
+            holdings you entered yourself, and are shown to you alone.
+          </p>
+        </Section>
+
+        <Section heading="A personal project, not a business">
+          <p>
+            PakFinance is a personal project, built and run by one person for
+            personal use. It is not a commercial product. Nothing is sold, no
+            subscription is offered, no advertising is carried, and your data is
+            never sold or shared for anyone&rsquo;s commercial benefit.
+          </p>
+          <p>
+            It is not a bank, a broker, an investment adviser, or a financial
+            institution of any kind, and it is not licensed or regulated as one by
+            the SECP, the State Bank of Pakistan, or anybody else. Nothing in it is
+            investment advice. Decisions about your money are yours, and worth
+            taking to a licensed professional.
+          </p>
+          <p>
+            Because it is a personal project run at no charge, there is no service
+            agreement behind it: no guaranteed uptime, no support commitment, and
+            no promise that it will still exist next year. Keep your own records
+            and export your data if it matters to you.
+          </p>
+        </Section>
+
         <Section heading="Your account">
           <p>You are responsible for:</p>
           <Bullets
@@ -115,11 +158,11 @@ export default function TermsPage() {
           <p>
             Questions:{" "}
             <a
-              href="mailto:support@pakfinance.app"
+              href="mailto:pakfinance.app@gmail.com"
               className="underline underline-offset-4"
               style={{ color: "var(--brass-text)" }}
             >
-              support@pakfinance.app
+              pakfinance.app@gmail.com
             </a>
             .
           </p>

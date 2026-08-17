@@ -47,7 +47,7 @@ async function main() {
    * `postgres`, which carries BYPASSRLS. Listed explicitly so that a user-facing
    * table missing its policies still fails loudly.
    */
-  const DENY_ALL_BY_DESIGN = new Set(["rate_limits"]);
+  const DENY_ALL_BY_DESIGN = new Set(["rate_limits", "admin_auth"]);
 
   console.log(`── public schema: ${tables.length} tables ──`);
   for (const t of tables) {

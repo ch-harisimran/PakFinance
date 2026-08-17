@@ -64,6 +64,12 @@ export const RULES = {
    * up and asks for a full sign-in anyway.
    */
   pinVerify: { limit: 10, windowSeconds: 15 * 60, blockSeconds: 30 * 60 },
+  /**
+   * The admin console guards market data shared by every user, and there is
+   * exactly one legitimate person trying. Tight on purpose; `admin_auth` also
+   * keeps its own durable lockout that survives a change of IP.
+   */
+  adminUnlock: { limit: 8, windowSeconds: 15 * 60, blockSeconds: 30 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RuleName = keyof typeof RULES;
