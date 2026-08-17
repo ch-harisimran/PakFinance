@@ -52,10 +52,11 @@ export function Nav() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Hover treatment lives in app/globals.css as `.nav-login` — see the
+              comment there for why it is not Tailwind utilities. */}
           <Link
             href="/login"
-            className="hidden min-h-[24px] items-center text-[14px] transition-colors duration-200 sm:inline-flex"
-            style={{ color: "var(--text-muted)" }}
+            className="nav-login hidden min-h-[24px] items-center px-3 py-1.5 text-[14px] sm:inline-flex"
           >
             Log in
           </Link>

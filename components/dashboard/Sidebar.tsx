@@ -75,7 +75,10 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
       <div
         className={`flex py-5 ${collapsed ? "flex-col items-center gap-3 px-2" : "items-center justify-between px-4"}`}
       >
-        <Logo href="/" showText={!collapsed} text={19} />
+        {/* /dashboard, not /. Inside the app the logo reads as "home", and
+            home is the dashboard — sending someone to the marketing page feels
+            like being logged out. */}
+        <Logo href="/dashboard" showText={!collapsed} text={19} />
 
         <button
           onClick={() => setCollapsed((v) => !v)}
