@@ -103,8 +103,11 @@ export async function getSessions(): Promise<SessionRow[]> {
     raw`select id::text          as id,
                user_agent,
                host(ip)          as ip,
-               created_at::text  as created_at,
-               updated_at::text  as updated_at
+               -- to_json gives RFC 3339 with a "+00:00" offset. A plain text
+               -- cast gives "+00", which is not a valid ISO offset, and every
+               -- attempt to normalise it produced Invalid Date.
+               to_json(created_at)#>>'{}' as created_at,
+               to_json(updated_at)#>>'{}' as updated_at
           from auth.sessions
          where user_id = ${user.id}::uuid
          order by updated_at desc`,

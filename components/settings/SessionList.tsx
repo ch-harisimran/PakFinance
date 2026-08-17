@@ -104,7 +104,11 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
 
 /** Relative for the recent past, absolute once that stops being useful. */
 function formatWhen(iso: string): string {
-  const then = new Date(iso.replace(" ", "T"));
+  // No string surgery: the query hands back RFC 3339, which Date parses
+  // everywhere. `.replace(" ", "T")` used to turn Postgres's "+00" into an
+  // offset no engine accepts, and the row read "last active Invalid Date".
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "unknown";
   const minutes = Math.round((Date.now() - then.getTime()) / 60_000);
 
   if (minutes < 2) return "just now";

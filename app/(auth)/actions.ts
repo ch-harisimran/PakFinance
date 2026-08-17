@@ -32,14 +32,35 @@ export async function signUp(_prev: ActionState, form: FormData): Promise<Action
   const limited = await guard("signUp", email);
   if (!limited.ok) return { error: limited.message, email };
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  // Session-creating call: forward the browser's identity so the device list
+  // does not show every sign-in as "Server or script".
+  const supabase = await createClient(true);
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { data: { full_name: fullName } },
   });
 
   if (error) return { error: error.message, email };
+
+  /**
+   * Already registered.
+   *
+   * Supabase deliberately does not error here — it returns a DECOY user with a
+   * fresh id, no session, and an EMPTY `identities` array, so that a stranger
+   * cannot use the signup form to discover which addresses have accounts.
+   * Verified against a real project: an existing address yields
+   * `identities: []` while a genuinely new one yields one identity.
+   *
+   * Saying so out loud trades a little of that privacy for a user who would
+   * otherwise sit on the verification screen waiting for a code that is never
+   * coming. The trade is bounded: `guard("signUp", …)` already caps this at
+   * 5 attempts an hour per address AND per IP, so it is not a practical way to
+   * enumerate anybody.
+   */
+  if (data.user && (data.user.identities?.length ?? 0) === 0) {
+    return { error: "already-registered", email };
+  }
 
   // The profile row is created by the on_auth_user_created trigger, so there is
   // nothing to insert here — and nothing to go wrong if this request dies.
@@ -54,7 +75,7 @@ export async function signIn(_prev: ActionState, form: FormData): Promise<Action
   const limited = await guard("signIn", email);
   if (!limited.ok) return { error: limited.message, email };
 
-  const supabase = await createClient();
+  const supabase = await createClient(true);
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {

@@ -26,7 +26,37 @@ export default function SignupPage() {
       }
     >
       <form action={action} className="auth-form">
-        <Field label="Full name" name="name" autoComplete="name" placeholder="Haris Khan" required />
+        {/* A returning user, not a validation failure — so it gets its own line
+            with the way out, rather than appearing under the password box. */}
+        {state.error === "already-registered" && (
+          <p
+            className="rounded-[10px] border px-4 py-3 text-[13px] leading-relaxed"
+            style={{ borderColor: "var(--border-subtle)", backgroundColor: "var(--surface-1)" }}
+            role="alert"
+          >
+            <span style={{ color: "var(--text-primary)" }}>
+              You already have an account with {state.email ?? "that address"}.
+            </span>{" "}
+            <Link
+              href={`/login?email=${encodeURIComponent(state.email ?? "")}`}
+              className="underline underline-offset-4"
+              style={{ color: "var(--brass-text)" }}
+            >
+              Log in instead
+            </Link>
+            , or{" "}
+            <Link
+              href="/forgot-password"
+              className="underline underline-offset-4"
+              style={{ color: "var(--brass-text)" }}
+            >
+              reset your password
+            </Link>
+            .
+          </p>
+        )}
+
+        <Field label="Full name" name="name" autoComplete="name" placeholder="Your full name" required />
         <Field
           label="Email"
           name="email"
@@ -43,7 +73,7 @@ export default function SignupPage() {
           autoComplete="new-password"
           placeholder="At least 8 characters"
           minLength={8}
-          error={state.error}
+          error={state.error === "already-registered" ? undefined : state.error}
           required
         />
 
