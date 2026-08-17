@@ -3,6 +3,11 @@
 import { useMemo, useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { paisaCompact, paisaFull, formatPct, type Notation } from "@/lib/money";
+import { niceScale } from "@/lib/chart-ticks";
+
+/** "16 Aug" — the same short form the transaction lists use. */
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
 /**
  * Zone 1 — the answer. One focal point at display scale.
@@ -50,9 +55,11 @@ export function NetWorthHero({
     const values = points.map((p) => p.valuePaisa);
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const pad = (max - min) * 0.2 || Math.max(1, Math.abs(max) * 0.05);
-    const lo = min - pad;
-    const hi = max + pad;
+
+    // The axis decides the domain, not an arbitrary 20% pad — that is what lets
+    // every gridline carry a round number the line can be read against.
+    const scale = niceScale(min, max, 4);
+    const { lo, hi } = scale;
 
     const x = (i: number) => (i / (points.length - 1)) * W;
     const y = (v: number) => H - ((v - lo) / (hi - lo)) * H;
@@ -63,6 +70,18 @@ export function NetWorthHero({
     const first = points[0].valuePaisa;
     const last = points[points.length - 1].valuePaisa;
 
+    /**
+     * Dates to mark along the bottom, as percentages across the plot.
+     *
+     * At most four, and never more than there are points: 365 daily snapshots
+     * cannot each carry a label, and two points must not be given three.
+     */
+    const wanted = Math.min(4, points.length);
+    const dateMarks = Array.from({ length: wanted }, (_, k) => {
+      const i = wanted === 1 ? 0 : Math.round((k / (wanted - 1)) * (points.length - 1));
+      return { date: points[i].date, pct: (i / (points.length - 1)) * 100 };
+    });
+
     return {
       path: d,
       area: `${d} L${W},${H} L0,${H} Z`,
@@ -70,6 +89,12 @@ export function NetWorthHero({
       max,
       from: points[0].date,
       changePct: first !== 0 ? ((last - first) / Math.abs(first)) * 100 : 0,
+      // Top of the plot is 0%, so a tick's offset is its distance from `hi`.
+      valueMarks: scale.ticks.map((v) => ({
+        value: v,
+        pct: ((hi - v) / (hi - lo)) * 100,
+      })),
+      dateMarks,
     };
   }, [series, range]);
 
@@ -126,42 +151,117 @@ export function NetWorthHero({
 
       {view ? (
         <>
-          <div className="relative mt-7 h-[clamp(150px,18vw,210px)] w-full">
-            <svg
-              viewBox={`0 0 ${W} ${H}`}
-              preserveAspectRatio="none"
-              className="absolute inset-0 h-full w-full"
+          {/*
+            The axis labels are HTML, not <text> inside the SVG.
+            `preserveAspectRatio="none"` stretches the viewBox to whatever width
+            the card has, which would stretch any glyphs with it — letters would
+            widen and thin as the window resized. Overlaying real text keeps it
+            selectable, readable by a screen reader, and typographically correct.
+
+            The gutter reserves room for the value labels so they cannot sit on
+            top of the line at either end.
+          */}
+          <div className="mt-7 flex gap-3">
+            <div
+              className="relative w-[46px] flex-none sm:w-[54px]"
+              style={{ height: "clamp(150px, 18vw, 210px)" }}
               aria-hidden="true"
             >
-              <defs>
-                <linearGradient id="nw-hero" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#C9A227" stopOpacity="0.22" />
-                  <stop offset="100%" stopColor="#C9A227" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              {[0.25, 0.5, 0.75].map((r) => (
-                <line
-                  key={r}
-                  x1="0"
-                  y1={H * r}
-                  x2={W}
-                  y2={H * r}
-                  stroke="var(--border-subtle)"
-                  strokeWidth="1"
-                  vectorEffect="non-scaling-stroke"
-                />
+              {view.valueMarks.map((m) => (
+                <span
+                  key={m.value}
+                  className="absolute right-0 -translate-y-1/2 text-[10px] tabular-nums"
+                  style={{
+                    top: `${m.pct}%`,
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--text-faint)",
+                  }}
+                >
+                  {paisaCompact(m.value, notation)}
+                </span>
               ))}
-              <path d={view.area} fill="url(#nw-hero)" />
-              <path
-                d={view.path}
-                fill="none"
-                stroke="var(--color-brass)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="relative h-[clamp(150px,18vw,210px)] w-full">
+                <svg
+                  viewBox={`0 0 ${W} ${H}`}
+                  preserveAspectRatio="none"
+                  className="absolute inset-0 h-full w-full"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <linearGradient id="nw-hero" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#C9A227" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#C9A227" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Driven by the ticks, so a line and its label can never
+                      disagree about where a value sits. */}
+                  {view.valueMarks.map((m) => (
+                    <line
+                      key={`h-${m.value}`}
+                      x1="0"
+                      y1={(m.pct / 100) * H}
+                      x2={W}
+                      y2={(m.pct / 100) * H}
+                      stroke="var(--border-subtle)"
+                      strokeWidth="1"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ))}
+
+                  {view.dateMarks.map((m) => (
+                    <line
+                      key={`v-${m.date}`}
+                      x1={(m.pct / 100) * W}
+                      y1="0"
+                      x2={(m.pct / 100) * W}
+                      y2={H}
+                      stroke="var(--border-subtle)"
+                      strokeWidth="1"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ))}
+
+                  <path d={view.area} fill="url(#nw-hero)" />
+                  <path
+                    d={view.path}
+                    fill="none"
+                    stroke="var(--color-brass)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </svg>
+              </div>
+
+              {/* First and last are anchored to their edges rather than centred
+                  on it, so neither is clipped by the card. */}
+              <div className="relative mt-2 h-[14px]">
+                {view.dateMarks.map((m, i) => {
+                  const first = i === 0;
+                  const last = i === view.dateMarks.length - 1;
+                  return (
+                    <span
+                      key={m.date}
+                      className="absolute top-0 whitespace-nowrap text-[10px]"
+                      style={{
+                        left: first ? 0 : last ? undefined : `${m.pct}%`,
+                        right: last ? 0 : undefined,
+                        transform: first || last ? undefined : "translateX(-50%)",
+                        fontFamily: "var(--font-mono)",
+                        color: "var(--text-faint)",
+                      }}
+                    >
+                      {shortDate(m.date)}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div

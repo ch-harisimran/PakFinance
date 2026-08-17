@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TransactionList, ExpenseBars } from "@/components/dashboard/TransactionList";
 import { Breakdown } from "@/components/dashboard/Breakdown";
 import { BalanceSheet } from "@/components/dashboard/BalanceSheet";
+import { NetWorthHero } from "@/components/dashboard/NetWorthHero";
 import { Attention } from "@/components/dashboard/Attention";
 import { Meter } from "@/components/ui/Meter";
 import { Field } from "@/components/ui/Field";
@@ -40,6 +41,19 @@ export default function AuditHarness() {
     assetsPaisa: P(4_465_900),
     netPaisa: P(3_285_900),
   };
+
+  /**
+   * A month of daily snapshots. Enough points that the chart exercises its axis
+   * properly — a two-point series would not show whether dates collide or the
+   * value labels line up with their gridlines.
+   */
+  const series = Array.from({ length: 30 }, (_, i) => {
+    const day = new Date(Date.UTC(2026, 6, 19) + i * 864e5);
+    return {
+      date: day.toISOString().slice(0, 10),
+      valuePaisa: P(2_600_000 + i * 23_000 + Math.round(Math.sin(i / 3) * 110_000)),
+    };
+  });
 
   const loans = [
     {
@@ -100,6 +114,24 @@ export default function AuditHarness() {
             </p>
             <Meter value={62} className="mt-4" />
           </Panel>
+
+          <NetWorthHero
+            notation="international"
+            netPaisa={breakdown.netPaisa}
+            series={series}
+          />
+
+          {/* Two points is the minimum the chart will draw, and the state a real
+              account is in on its second day — worth rendering because the axis
+              has to stay legible with only a pair of dates. */}
+          <NetWorthHero
+            notation="international"
+            netPaisa={0}
+            series={[
+              { date: "2026-08-16", valuePaisa: P(318_480) },
+              { date: "2026-08-17", valuePaisa: 0 },
+            ]}
+          />
 
           <BalanceSheet notation="international" breakdown={breakdown} loans={loans} />
         </div>

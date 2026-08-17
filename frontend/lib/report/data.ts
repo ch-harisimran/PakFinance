@@ -2,6 +2,8 @@ import "server-only";
 
 import { getDashboard, getNetWorthSeries } from "@/lib/queries-networth";
 import { getSecurityMeta, getPriceAsOf } from "@/lib/queries-psx";
+import { withLiveToday } from "@/lib/networth-series";
+import { karachiNow } from "@/lib/market/sessions";
 import { getProfile, displayNameOf } from "@/lib/report/util";
 
 /**
@@ -34,9 +36,13 @@ export async function buildReportData() {
   const symbols = [...new Set(data.holdings.map((h) => h.symbol))];
   const sectorMeta = await getSecurityMeta(symbols);
   const priceAsOf = await getPriceAsOf();
-  const series = await getNetWorthSeries(365);
+  const history = await getNetWorthSeries(365);
 
   const { breakdown, holdings, positions, accounts, loans, goals, flow, txns, invested } = data;
+
+  // Same live-today rule as the dashboard, so a report run before the day's
+  // snapshot does not trail the figures printed beside it.
+  const series = withLiveToday(history, karachiNow().date, breakdown.netPaisa);
 
   // Sector concentration, biggest first.
   const bySector = [...holdings.reduce((m, h) => {

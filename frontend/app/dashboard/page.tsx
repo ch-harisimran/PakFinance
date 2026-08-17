@@ -11,7 +11,8 @@ import {
 } from "@/components/dashboard/Panels";
 import { getDashboard, getNetWorthSeries } from "@/lib/queries-networth";
 import { getNotation } from "@/lib/queries";
-import { getMarketState } from "@/lib/market/sessions";
+import { getMarketState, karachiNow } from "@/lib/market/sessions";
+import { withLiveToday } from "@/lib/networth-series";
 
 /**
  * Three zones with deliberately unequal weight:
@@ -36,11 +37,23 @@ export default async function DashboardPage() {
    * network calls to somewhere far away.
    */
   const data = await getDashboard();
-  const series = await getNetWorthSeries();
+  const history = await getNetWorthSeries();
   const market = await getMarketState();
   const notation = await getNotation();
 
   const { breakdown, flow, loans, goals, holdings, positions, fundMeta, txns, accounts, invested } = data;
+
+  /**
+   * The snapshot job owns yesterday and before; today is live.
+   *
+   * `breakdown.netPaisa` is recomputed from the ledgers on every load, so
+   * splicing it in as today's point makes the line move with the headline figure
+   * — when a record is added or edited, and when the PSX sync brings in new
+   * prices. Otherwise the chart's last point stayed at whatever the 13:30 job
+   * saw, and an asset entered in the evening moved the number above the chart
+   * but not the chart itself.
+   */
+  const series = withLiveToday(history, karachiNow().date, breakdown.netPaisa);
 
   // Last six calendar months of flow, oldest first.
   const months = Array.from({ length: 6 }, (_, i) => {
