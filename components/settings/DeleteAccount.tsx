@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { deleteAccount } from "@/app/dashboard/actions";
+import { clearPin } from "@/lib/pin/store";
 import { submitting } from "@/lib/form";
 
 /**
@@ -34,6 +35,14 @@ export function DeleteAccount({ email }: { email: string }) {
     startTransition(async () => {
       const result = await deleteAccount({}, form);
       if (result.ok) {
+        // The account is gone; the wrapped session in this browser is not.
+        // Leaving it behind locks the NEXT account registered here behind a
+        // PIN that no longer exists anywhere on the server.
+        try {
+          clearPin();
+        } catch {
+          // Storage unavailable — nothing to clean up that matters.
+        }
         // replace, not push: the dashboard behind us belongs to an account that
         // no longer exists, and the back button should not offer to go there.
         // refresh() then drops the cached RSC payloads for those routes.

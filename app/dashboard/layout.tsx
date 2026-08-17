@@ -41,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     // AppLock wraps the whole app surface, not individual pages — a lock that
     // only covered some routes would be trivially sidestepped by navigating.
-    <AppLock pinSet={profile?.pinSet ?? false}>
+    <AppLock pinSet={profile?.pinSet ?? false} email={profile?.email ?? ""}>
       <div
         className="flex min-h-screen"
         style={{ backgroundColor: "var(--color-ground-ink)", color: "var(--text-primary)" }}

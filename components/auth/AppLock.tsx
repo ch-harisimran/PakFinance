@@ -48,10 +48,13 @@ const ACTIVITY = ["mousedown", "keydown", "touchstart", "scroll", "pointermove"]
 
 export function AppLock({
   pinSet,
+  email,
   children,
 }: {
   /** Whether the ACCOUNT has a PIN — not whether this browser has a blob. */
   pinSet: boolean;
+  /** The signed-in address, used to prove a stored blob belongs to THIS account. */
+  email: string;
   children: React.ReactNode;
 }) {
   const [locked, setLocked] = useState(false);
@@ -73,11 +76,18 @@ export function AppLock({
     window.location.href = "/login";
   };
 
-  // Only ever locks when a PIN is actually set; otherwise the app is unguarded
-  // by choice and an idle timeout would just be an obstacle. The account's PIN
-  // counts even with no blob here — that is exactly the state a fresh sign-in
-  // leaves this browser in, and it must still lock.
-  const armed = useCallback(() => pinSet || loadPin() !== null, [pinSet]);
+  /**
+   * ONLY the account decides whether to lock.
+   *
+   * This used to be `pinSet || loadPin() !== null`, and the second half was a
+   * trap: localStorage outlives the account it belonged to. Delete an account
+   * and register again from the same browser and the old blob was still there,
+   * so a brand-new account with no PIN was locked behind the deleted account's
+   * PIN — and five wrong guesses locked it out entirely.
+   *
+   * The blob answers "how do I unlock offline", never "should I lock".
+   */
+  const armed = useCallback(() => pinSet, [pinSet]);
 
   const lock = useCallback(() => {
     if (!armed()) return;
@@ -100,6 +110,11 @@ export function AppLock({
    */
   useEffect(() => {
     const id = setTimeout(() => {
+      // No PIN on the account means any blob here is a leftover — from a
+      // deleted account, or a PIN removed on another device. Bin it, so it
+      // cannot be decrypted into a session later.
+      if (!pinSet && loadPin() !== null) clearPin();
+
       if (armed() && wasLocked()) {
         setLeft(attemptsLeft());
         setLocked(true);
@@ -107,7 +122,7 @@ export function AppLock({
       setReady(true);
     }, 0);
     return () => clearTimeout(id);
-  }, [armed]);
+  }, [armed, pinSet]);
 
   useEffect(() => {
     if (locked) return;
@@ -188,6 +203,22 @@ export function AppLock({
         return;
       }
       await reject();
+      return;
+    }
+
+    /**
+     * The blob decrypted — but whose is it?
+     *
+     * localStorage is per-browser, not per-account. A blob left by a previous
+     * account on this machine would decrypt for whoever knows THAT PIN, and the
+     * refresh below would then establish THAT account's session over the top of
+     * this one. The email travels inside the ciphertext precisely so it can be
+     * checked here, and it cannot be edited without the PIN.
+     */
+    if (result.email && email && result.email.toLowerCase() !== email.toLowerCase()) {
+      clearPin();
+      setBusy(false);
+      setError("That PIN belongs to a different account. Sign in again.");
       return;
     }
 

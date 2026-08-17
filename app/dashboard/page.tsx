@@ -12,6 +12,7 @@ import {
 import { getDashboard, getNetWorthSeries } from "@/lib/queries-networth";
 import { getNotation } from "@/lib/queries";
 import { getMarketState, karachiNow } from "@/lib/market/sessions";
+import { greetingFor, karachiHour } from "@/lib/greeting";
 import { withLiveToday } from "@/lib/networth-series";
 
 /**
@@ -71,12 +72,8 @@ export default async function DashboardPage() {
     };
   }).filter((m) => m.income > 0 || m.expenses > 0);
 
-  const hour = Number(
-    new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Karachi", hour: "2-digit", hour12: false }).format(
-      new Date(),
-    ),
-  );
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  // Four bands, one wrapping midnight — see lib/greeting.ts.
+  const greeting = greetingFor(karachiHour());
 
   return (
     <div className="flex-1 px-5 py-6 sm:px-6">
