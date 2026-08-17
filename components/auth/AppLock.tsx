@@ -240,22 +240,31 @@ export function AppLock({
 
   // Avoid a flash of the app before we know whether it should be locked.
   /**
-   * Only an account WITH a PIN waits.
+   * Nothing is ever withheld from the server render.
    *
-   * This used to be `if (!ready) return null` unconditionally, which withheld
-   * the entire dashboard until the client bundle had downloaded, parsed and
-   * hydrated. On a laptop that is imperceptible; on a phone it is seconds of
-   * blank screen with the server-rendered HTML sitting there unused.
+   * This was `return null` until the client had hydrated — first always, then
+   * only when a PIN existed. Both blocked the FIRST PAINT: the server had
+   * perfectly good HTML and the browser was told to render nothing until the
+   * bundle arrived, which on a phone is seconds of blank screen.
    *
-   * The server already knows whether a PIN exists. With none there is nothing
-   * to lock and nothing to flash, so the page paints immediately. With one, the
-   * original guard still holds and no content appears before the lock does.
+   * The page now streams immediately. When the account has a PIN and we have
+   * not yet confirmed the app is unlocked, an opaque cover is rendered in the
+   * SAME server pass — so the chrome paints, nothing readable leaks, and the
+   * cover lifts the moment hydration decides no lock is needed.
    */
-  if (!ready && pinSet) return null;
+  const covered = pinSet && !ready;
 
   return (
     <>
       {children}
+
+      {covered && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-[9997]"
+          style={{ backgroundColor: "var(--color-ground-ink)" }}
+        />
+      )}
 
       {locked && (
         <div

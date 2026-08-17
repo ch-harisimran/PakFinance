@@ -42,7 +42,7 @@ const PRESERVE = "[transform-style:preserve-3d]";
 
 export function HeroDeck() {
   return (
-    <div className="relative [perspective:1600px] max-lg:[perspective:none]">
+    <div className="hero-deck relative [perspective:1600px] max-lg:[perspective:none]">
       {/* One soft light source behind the whole cluster — binds the cards into
           a single lit object rather than several separately-lit tiles. */}
       <div
@@ -59,10 +59,10 @@ export function HeroDeck() {
         className={`relative ${PRESERVE}`}
         style={{ transform: "rotateY(-9deg) rotateX(3deg)" }}
       >
-        <div className={`flex items-start ${PRESERVE} max-lg:flex-col max-lg:gap-2.5`}>
+        <div className={`flex items-start ${PRESERVE} max-lg:flex-col max-lg:gap-0`}>
           {/* ── Left column: the market/activity stack, in front ── */}
           <div
-            className={`z-30 flex w-[40%] flex-col gap-3 ${PRESERVE} max-lg:w-full`}
+            className={`z-30 flex w-[40%] flex-col gap-3 ${PRESERVE} max-lg:w-full max-lg:gap-0`}
           >
             {/* PSX holdings — the credibility card. The KSE-100 index heads this
                 card rather than floating separately: the index belongs with the
@@ -205,7 +205,7 @@ export function HeroDeck() {
           {/* Inset from the left on mobile so it sits UNDER the market stack
               rather than beside it — the same front-to-back reading the -ml-6
               overlap gives on desktop, expressed vertically. */}
-          <div className={`z-20 -ml-6 flex-1 ${PRESERVE} max-lg:ml-4 max-lg:w-auto max-lg:self-stretch`}>
+          <div className={`z-20 -ml-6 flex-1 ${PRESERVE} max-lg:ml-0 max-lg:w-full`}>
             <div
               data-deck-item
               data-deck-main
@@ -304,7 +304,7 @@ export function HeroDeck() {
             <div
               data-deck-item
               data-z="40"
-              className="glass-panel relative z-40 -mt-3 ml-auto w-[72%] px-4 py-3.5 max-lg:mt-0 max-lg:mr-4 max-lg:w-auto"
+              className="glass-panel relative z-40 -mt-3 ml-auto w-[72%] px-4 py-3.5 max-lg:mt-0 max-lg:w-full"
             >
               <div className="flex items-start justify-between">
                 <div>

@@ -403,3 +403,64 @@ html.lenis body {
     transform: none;
   }
 }
+
+/* ── Hero deck: a real stack on phones ───────────────────────────────────────
+ *
+ * Above `lg` the deck is a 3D arrangement — panels overlapping in perspective,
+ * which is the whole character of the thing. Below it the columns collapse and
+ * every panel went full width in a flat vertical list: six identical boxes in a
+ * column, which is what made the mobile hero read as a feed rather than a hero.
+ *
+ * This restores the overlap in two dimensions instead of three. The cards pull
+ * up into each other, tilt very slightly in alternating directions, and stack
+ * front-to-back in DOM order — so it reads as a deck of cards rather than a list
+ * of rows, without the perspective transform that needs width to work.
+ *
+ * The panels are made OPAQUE here, and that is required rather than cosmetic:
+ * `glass-panel` is a translucent gradient over an 18px backdrop blur, so once
+ * two of them overlap you read the lower card's text straight through the upper
+ * one. Transparency is only legible when nothing sits behind it.
+ *
+ * Scoped to `max-width: 1023.98px` (Tailwind's `lg` boundary) — the desktop
+ * composition is untouched.
+ */
+@media (max-width: 1023.98px) {
+  .hero-deck [data-deck-item] {
+    position: relative;
+    background: linear-gradient(158deg, #191c22, #101216);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow:
+      var(--highlight-top),
+      0 20px 44px -20px rgba(0, 0, 0, 0.9);
+    /* Pull each card into the one above it. */
+    margin-top: -22px;
+  }
+
+  /* Alternating tilt, small enough to read as hand-stacked rather than askew. */
+  .hero-deck [data-deck-item]:nth-of-type(odd) {
+    transform: rotate(-1.15deg);
+  }
+  .hero-deck [data-deck-item]:nth-of-type(even) {
+    transform: rotate(0.95deg);
+  }
+
+  /* The first card in the deck has nothing to overlap, and the tilt would
+     otherwise clip against the headline above it. */
+  .hero-deck > * > * > :first-child [data-deck-item]:first-of-type {
+    margin-top: 0;
+    transform: none;
+  }
+
+  /* Rotation makes the corners sweep wider than the box, so keep them off the
+     screen edges. */
+  .hero-deck {
+    padding-inline: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-deck [data-deck-item] {
+      transform: none;
+    }
+  }
+}
