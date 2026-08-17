@@ -110,6 +110,22 @@
 
   /* rhythm */
   --section-pad: clamp(96px, 14vh, 160px);
+
+  /**
+   * Phones get their own rhythm.
+   *
+   * The value above is keyed to viewport HEIGHT with a 96px floor, so a phone
+   * received at least 96px above AND below all thirteen sections — roughly a
+   * quarter of an 812px screen of empty space, thirteen times over, which is
+   * what made the landing page read as boxes drifting in a void rather than a
+   * composition.
+   *
+   * Scoped to `max-width: 639.98px` (Tailwind's `sm` boundary) so every screen
+   * from a small tablet upwards resolves the ORIGINAL value untouched.
+   */
+  @media (max-width: 639.98px) {
+    --section-pad: clamp(52px, 7vh, 76px);
+  }
   --content-max: 1200px;
 }
 

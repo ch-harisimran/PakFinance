@@ -6,57 +6,9 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/Logo";
 import { displayName, initialsOf, type Profile } from "@/lib/profile";
-import {
-  LayoutDashboard,
-  LineChart,
-  PiggyBank,
-  Landmark,
-  ArrowLeftRight,
-  Receipt,
-  Target,
-  Settings,
-  ChevronsLeft,
-  ChevronsRight,
-  Users,
-  HandCoins,
-  Gem,
-} from "lucide-react";
+import { NAV_GROUPS, isActiveRoute } from "@/lib/nav";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
 
-/**
- * Grouped by how someone thinks about their money, not by table. This grouping
- * came straight from the reference and is the part it got most right.
- */
-const GROUPS = [
-  { label: "Overview", items: [{ label: "Dashboard", href: "/dashboard", Icon: LayoutDashboard }] },
-  {
-    label: "Investments",
-    items: [
-      { label: "PSX Portfolio", href: "/dashboard/psx", Icon: LineChart },
-      { label: "Mutual Funds", href: "/dashboard/funds", Icon: PiggyBank },
-      { label: "Other Assets", href: "/dashboard/assets", Icon: Gem },
-    ],
-  },
-  {
-    label: "Money",
-    items: [
-      { label: "Bank Accounts", href: "/dashboard/bank", Icon: Landmark },
-      { label: "Transactions", href: "/dashboard/transactions", Icon: ArrowLeftRight },
-    ],
-  },
-  {
-    label: "Planning",
-    items: [
-      { label: "Loans", href: "/dashboard/loans", Icon: Receipt },
-      { label: "Committees", href: "/dashboard/committees", Icon: Users },
-      { label: "Goals", href: "/dashboard/goals", Icon: Target },
-      { label: "Zakat", href: "/dashboard/zakat", Icon: HandCoins },
-    ],
-  },
-  {
-    label: "System",
-    items: [{ label: "Settings", href: "/dashboard/settings", Icon: Settings }],
-  },
-];
 
 export function Sidebar({ profile }: { profile: Profile | null }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -97,7 +49,7 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        {GROUPS.map((g) => (
+        {NAV_GROUPS.map((g) => (
           <div key={g.label} className="mb-5">
             {!collapsed && (
               <div
@@ -109,7 +61,7 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
             )}
             <div className="flex flex-col gap-0.5">
               {g.items.map((item) => {
-                const active = pathname === item.href;
+                const active = isActiveRoute(item.href, pathname);
                 return (
                   <Link
                     key={item.href}

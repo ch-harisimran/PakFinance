@@ -16,6 +16,7 @@ import {
 import { UserMenu } from "@/components/dashboard/UserMenu";
 import type { Alert } from "@/lib/alerts";
 import type { Profile } from "@/lib/profile";
+import { MobileNav } from "@/components/dashboard/MobileNav";
 
 /**
  * The global Add button is gone. "Add" with no context is a guess — it now sits
@@ -40,10 +41,14 @@ export function Topbar({ profile, alerts }: { profile: Profile | null; alerts: A
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center gap-4 border-b px-5 py-3 backdrop-blur-xl sm:px-6"
+      className="sticky top-0 z-30 flex items-center gap-2 border-b px-4 py-3 backdrop-blur-xl sm:gap-4 sm:px-6"
       style={{ borderColor: "var(--border-subtle)", backgroundColor: "rgba(10,11,13,0.72)" }}
     >
-      <h1 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h1>
+      {/* The only way to navigate below `lg`, where the sidebar is hidden.
+          `lg:hidden` inside MobileNav, so the laptop header is unchanged. */}
+      <MobileNav profile={profile} />
+
+      <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{title}</h1>
 
       {/* No global search. Searching "everything" returns a mixed bag the user
           then has to sort themselves; each screen owns a search scoped to its
