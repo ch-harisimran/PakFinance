@@ -13,36 +13,54 @@ import { PIN_VALID_DAYS } from "@/lib/pin/constants";
  * Shown only when the ACCOUNT has no PIN — `pinSet` comes from the profile, so
  * setting one on any device stops this everywhere, permanently.
  *
- * Dismissal is remembered per browser rather than per account, and deliberately:
- * a PIN encrypts the session stored on THIS machine, so someone who declined on
- * their laptop should still be asked on a new phone. Once a PIN exists the
- * prompt never appears again regardless.
+ * Dismissal is remembered per ACCOUNT. It was briefly per browser, on the
+ * reasoning that a PIN encrypts the session on this particular machine — but
+ * that meant the first person to dismiss it silenced it for every account that
+ * signed in afterwards, so a new user was never offered a PIN at all. Once a
+ * PIN exists the prompt never appears again regardless.
  *
  * It offers, it does not insist. The app is perfectly usable without a PIN, and
  * a modal that cannot be dismissed teaches people to click past warnings.
  */
 
-const DISMISSED = "pf.pin.prompted";
+/**
+ * Keyed by user id, not a single flag for the browser.
+ *
+ * A bare "pf.pin.prompted" meant the FIRST person to dismiss it on a machine
+ * silenced it for everyone who signed in afterwards — a genuinely new account
+ * was never offered a PIN at all, and could only find it buried in Settings.
+ * Per-account, each person is asked exactly once.
+ */
+const dismissKey = (userId: string) => `pf.pin.prompted:${userId}`;
 
-export function PinPrompt({ pinSet }: { pinSet: boolean }) {
+/** The old browser-wide flag, swept so it stops suppressing the prompt. */
+const LEGACY = "pf.pin.prompted";
+
+export function PinPrompt({ pinSet, userId }: { pinSet: boolean; userId: string }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    if (pinSet) return;
+    if (pinSet || !userId) return;
     // Deferred a tick: localStorage cannot be read during SSR, so this cannot be
     // lazy initial state, and setting it inline cascades a render before paint.
     const id = setTimeout(() => {
-      if (localStorage.getItem(DISMISSED) === null) setOpen(true);
+      try {
+        localStorage.removeItem(LEGACY);
+        if (localStorage.getItem(dismissKey(userId)) === null) setOpen(true);
+      } catch {
+        // Storage blocked. Offering the PIN once per load beats never.
+        setOpen(true);
+      }
     }, 0);
     return () => clearTimeout(id);
-  }, [pinSet]);
+  }, [pinSet, userId]);
 
   function close() {
     // Remembered whichever way they answer: someone who went to Settings has
     // been asked, and should not be asked again on the way back.
     try {
-      localStorage.setItem(DISMISSED, String(Date.now()));
+      localStorage.setItem(dismissKey(userId), String(Date.now()));
     } catch {
       // Private browsing with storage disabled. Not being able to record the
       // dismissal is no reason to trap them behind the dialog.

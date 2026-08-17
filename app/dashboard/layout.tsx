@@ -48,7 +48,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       >
         {/* Offered once, on any dashboard screen, and only while the account
             has no PIN. Inside AppLock so it can never appear over the lock. */}
-        <PinPrompt pinSet={profile?.pinSet ?? false} />
+        <PinPrompt pinSet={profile?.pinSet ?? false} userId={profile?.userId ?? ""} />
 
         <Sidebar profile={profile} />
         <div className="flex min-w-0 flex-1 flex-col">
