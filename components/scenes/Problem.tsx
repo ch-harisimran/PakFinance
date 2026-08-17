@@ -127,8 +127,20 @@ export function Problem() {
           </h2>
         </div>
 
-        {/* The scattered cards */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        {/*
+          The scattered cards.
+
+          `max-md:hidden` because this layer and the merged panel below are two
+          absolutely-positioned states of the same scene, cross-faded by the
+          scroll timeline. Below `md` that timeline does not run, so both were
+          painted at once — three 164px cards in a flex row overflowing a 390px
+          screen, with the closing panel sitting on top of them.
+
+          On a phone the scatter is decoration and the merged panel is the
+          point, so the decoration goes. Desktop is untouched: the layer, its
+          offsets and the animation are all unchanged above `md`.
+        */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center max-md:hidden">
           {SCATTERED.map((c) => (
             <div
               key={c.label}
@@ -159,7 +171,7 @@ export function Problem() {
         {/* What they become */}
         <div
           data-merge-in
-          className="absolute inset-x-0 flex flex-col items-center px-5 text-center opacity-0"
+          className="absolute inset-x-0 flex flex-col items-center px-5 text-center opacity-0 max-md:relative max-md:opacity-100"
         >
           <div
             className="mb-6 text-[11px] uppercase tracking-[0.18em]"
