@@ -29,10 +29,6 @@ export function loadPin(): WrappedSession | null {
   }
 }
 
-export function hasPin(): boolean {
-  return loadPin() !== null;
-}
-
 /** Wipes the wrapped session. The next visit needs a full login. */
 export function clearPin() {
   localStorage.removeItem(KEY);

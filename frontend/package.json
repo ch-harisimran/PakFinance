@@ -29,7 +29,7 @@
     "reconcile:psx": "tsx scripts/reconcile-psx.ts",
     "merge:funds": "tsx scripts/merge-funds.ts",
     "verify:pin": "tsx scripts/verify-pin.ts",
-    "sync:nav:api": "tsx scripts/sync-nav-api.ts"
+    "verify:report": "tsx scripts/verify-report.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
